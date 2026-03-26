@@ -21,25 +21,51 @@
             box-sizing: border-box;
         }
 
+        html,
+        body {
+            overflow-x: hidden;
+        }
+
         body {
             margin: 0;
             font-family: "DM Sans", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
             color: var(--ink);
-            background: #fff4b5;
+            background-color: #fff4b5;
             min-height: 100vh;
         }
 
         .container {
+            position: relative;
             width: min(980px, 92%);
             margin: 0 auto;
             padding: 1.25rem 0 3rem;
+        }
+
+        .container::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 3;
+            opacity: 0.42;
+            background-image:
+                radial-gradient(circle, rgba(255, 255, 255, 0.8) 0 1.25px, transparent 1.95px),
+                radial-gradient(circle, rgba(255, 255, 255, 0.55) 0 1px, transparent 1.75px);
+            background-size: 108px 108px, 162px 162px;
+            background-position: 0 0, 42px 54px;
+            animation: pageStarsDrift 38s linear infinite;
+        }
+
+        .container > * {
+            position: relative;
+            z-index: 2;
         }
 
         .topbar {
             display: flex;
             justify-content: flex-end;
             align-items: center;
-            width: 100vw;
+            width: 100%;
             position: absolute;
             top: 0;
             left: 0;
@@ -75,6 +101,13 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            gap: 0.4rem;
+        }
+
+        .btn svg {
+            width: 13px;
+            height: 13px;
+            fill: currentColor;
         }
 
         .btn-light {
@@ -102,10 +135,11 @@
 
         .hero {
             position: relative;
-            width: 100vw;
-            margin-left: calc(50% - 50vw);
-            margin-right: calc(50% - 50vw);
+            width: 100%;
+            margin-left: 0;
+            margin-right: 0;
             margin-top: -1px;
+            margin-bottom: -2px;
             padding: 0;
             overflow: hidden;
             box-shadow: 0 10px 30px rgba(80, 55, 0, 0.15);
@@ -162,6 +196,11 @@
             inset: 0;
             background: rgba(255, 255, 255, 0.2);
             z-index: 0;
+        }
+
+        @keyframes pageStarsDrift {
+            from { background-position: 0 0, 42px 54px; }
+            to { background-position: -150px -96px, -50px -22px; }
         }
 
         .hero-panel-content {
@@ -285,9 +324,9 @@
         }
 
         .contact-bar {
-            width: 100vw;
-            margin-left: calc(50% - 50vw);
-            margin-right: calc(50% - 50vw);
+            width: 100%;
+            margin-left: 0;
+            margin-right: 0;
             margin-top: 1rem;
             background: #fff0a1;
             border-top: 1px solid rgba(42, 33, 0, 0.2);
@@ -378,11 +417,20 @@
                 </select>
                 @if (Route::has('login'))
                     @auth
-                        <a href="{{ url('/dashboard') }}" class="btn btn-dark">{{ __('welcome.nav_dashboard') }}</a>
+                        <a href="{{ url('/dashboard') }}" class="btn btn-dark">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3V3zm10 0h8v5h-8V3zM3 13h5v8H3v-8zm7 0h11v8H10v-8z"/></svg>
+                            {{ __('welcome.nav_dashboard') }}
+                        </a>
                     @else
-                        <a href="{{ route('login') }}" class="btn btn-login">{{ __('welcome.nav_login') }}</a>
+                        <a href="{{ route('login') }}" class="btn btn-login">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 17v-3h8v-4h-8V7l-5 5 5 5zm3 5H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7v2H7v16h7v2z"/></svg>
+                            {{ __('welcome.nav_login') }}
+                        </a>
                         @if (Route::has('register'))
-                            <a href="{{ route('register') }}" class="btn btn-register">{{ __('welcome.nav_register') }}</a>
+                            <a href="{{ route('register') }}" class="btn btn-register">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 13a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm-8 7v-1.2a4.8 4.8 0 0 1 4.8-4.8h6.4A4.8 4.8 0 0 1 23 18.8V20h-2v-1.2a2.8 2.8 0 0 0-2.8-2.8h-6.4A2.8 2.8 0 0 0 9 18.8V20H7zm-6-9h5v2H1v-2zm0-4h7v2H1V7z"/></svg>
+                                {{ __('welcome.nav_register') }}
+                            </a>
                         @endif
                     @endauth
                 @endif
@@ -490,3 +538,4 @@
     </script>
 </body>
 </html>
+
