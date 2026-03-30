@@ -13,16 +13,21 @@
             <select id="student_id" name="student_id" required>
                 <option value="">Select student</option>
                 @foreach ($students as $student)
-                    <option value="{{ $student->id }}" @selected((string) old('student_id') === (string) $student->id)>{{ $student->name }} ({{ $student->class_name }})</option>
+                    <option value="{{ $student->id }}" @selected((string) old('student_id') === (string) $student->id)>{{ $student->name }} ({{ $student->email }})</option>
                 @endforeach
             </select>
             @error('student_id')<div class="error">{{ $message }}</div>@enderror
         </div>
 
         <div class="field">
-            <label for="absence_date">Absence Date</label>
-            <input id="absence_date" name="absence_date" type="date" value="{{ old('absence_date') }}" required>
-            @error('absence_date')<div class="error">{{ $message }}</div>@enderror
+            <label for="start_date">Start Date</label>
+            <input id="start_date" name="start_date" type="date" value="{{ old('start_date') }}" required>
+            @error('start_date')<div class="error">{{ $message }}</div>@enderror
+        </div>
+        <div class="field">
+            <label for="end_date">End Date</label>
+            <input id="end_date" name="end_date" type="date" value="{{ old('end_date') }}" required>
+            @error('end_date')<div class="error">{{ $message }}</div>@enderror
         </div>
 
         <div class="field">

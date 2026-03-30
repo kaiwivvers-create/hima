@@ -4,8 +4,13 @@
 @section('page_title', 'Absence Notes')
 
 @section('content')
+@php
+    $canSubmitAbsence = auth()->user()?->can('absences.create') || in_array(auth()->user()?->role, ['parent', 'student'], true);
+@endphp
 <div class="page-actions">
-    <button class="btn" type="button" data-modal-open="absence-create-modal">Add Absence</button>
+    @if ($canSubmitAbsence)
+        <button class="btn" type="button" data-modal-open="absence-create-modal">Add Absence</button>
+    @endif
 </div>
 
 <section class="card">
@@ -13,7 +18,7 @@
         <thead>
             <tr>
                 <th>Student</th>
-                <th>Date</th>
+                <th>Dates</th>
                 <th>Reason</th>
                 <th>Submitted By</th>
                 <th>Verification</th>
@@ -24,14 +29,24 @@
             @forelse ($absences as $absence)
                 <tr>
                     <td>{{ $absence->student?->name ?? '-' }}</td>
-                    <td>{{ $absence->absence_date?->format('Y-m-d') }}</td>
+                    <td>
+                        @if ($absence->start_date && $absence->end_date)
+                            {{ $absence->start_date->format('Y-m-d') }} &ndash; {{ $absence->end_date->format('Y-m-d') }}
+                        @else
+                            -
+                        @endif
+                    </td>
                     <td>{{ $absence->reason }}</td>
                     <td>{{ $absence->submitted_by ?: '-' }}</td>
                     <td>{{ ucfirst($absence->verification_status) }}</td>
                     <td>
                         <div class="actions">
-                            <button class="btn-outline" type="button" data-modal-open="absence-edit-{{ $absence->id }}">Edit</button>
-                            <button class="btn btn-danger" type="button" data-modal-open="absence-delete-{{ $absence->id }}">Delete</button>
+                            @perm('absences.update')
+                                <button class="btn-outline" type="button" data-modal-open="absence-edit-{{ $absence->id }}">Edit</button>
+                            @endperm
+                            @perm('absences.delete')
+                                <button class="btn btn-danger" type="button" data-modal-open="absence-delete-{{ $absence->id }}">Delete</button>
+                            @endperm
                         </div>
                     </td>
                 </tr>
@@ -46,6 +61,7 @@
     <div class="pagination">{{ $absences->withQueryString()->links() }}</div>
 </section>
 
+@perm('absences.create')
 <div class="modal" id="absence-create-modal">
     <div class="modal-backdrop" data-modal-close></div>
     <div class="modal-card">
@@ -60,38 +76,48 @@
                 <select id="create-absence-student" name="student_id" required>
                     <option value="">Select student</option>
                     @foreach ($students as $student)
-                        <option value="{{ $student->id }}">{{ $student->name }} ({{ $student->class_name }})</option>
+                        <option value="{{ $student->id }}">{{ $student->name }} ({{ $student->email }})</option>
                     @endforeach
                 </select>
             </div>
             <div class="field">
-                <label for="create-absence-date">Absence Date</label>
-                <input id="create-absence-date" name="absence_date" type="date" required>
+                <label for="create-start-date">Start Date</label>
+                <input id="create-start-date" name="start_date" type="date" required>
+            </div>
+            <div class="field">
+                <label for="create-end-date">End Date</label>
+                <input id="create-end-date" name="end_date" type="date" required>
             </div>
             <div class="field">
                 <label for="create-reason">Reason</label>
                 <textarea id="create-reason" name="reason" rows="3" required></textarea>
             </div>
-            <div class="field">
-                <label for="create-submitted-by">Submitted By</label>
-                <input id="create-submitted-by" name="submitted_by" type="text">
-            </div>
-            <div class="field">
-                <label for="create-verification-status">Verification Status</label>
-                <select id="create-verification-status" name="verification_status" required>
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                </select>
-            </div>
+            @can('absences.create')
+                <div class="field">
+                    <label for="create-submitted-by">Submitted By</label>
+                    <input id="create-submitted-by" name="submitted_by" type="text">
+                </div>
+                <div class="field">
+                    <label for="create-verification-status">Verification Status</label>
+                    <select id="create-verification-status" name="verification_status" required>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+            @else
+                <input type="hidden" name="verification_status" value="pending">
+            @endcan
             <div class="actions">
                 <button type="submit" class="btn">Save</button>
             </div>
         </form>
     </div>
 </div>
+@endperm
 
 @foreach ($absences as $absence)
+    @perm('absences.update')
     <div class="modal" id="absence-edit-{{ $absence->id }}">
         <div class="modal-backdrop" data-modal-close></div>
         <div class="modal-card">
@@ -106,13 +132,17 @@
                     <label for="edit-absence-student-{{ $absence->id }}">Student</label>
                     <select id="edit-absence-student-{{ $absence->id }}" name="student_id" required>
                         @foreach ($students as $student)
-                            <option value="{{ $student->id }}" @selected((int) $absence->student_id === (int) $student->id)>{{ $student->name }} ({{ $student->class_name }})</option>
+                            <option value="{{ $student->id }}" @selected((int) $absence->student_id === (int) $student->id)>{{ $student->name }} ({{ $student->email }})</option>
                         @endforeach
                     </select>
                 </div>
                 <div class="field">
-                    <label for="edit-absence-date-{{ $absence->id }}">Absence Date</label>
-                    <input id="edit-absence-date-{{ $absence->id }}" name="absence_date" type="date" value="{{ $absence->absence_date?->format('Y-m-d') }}" required>
+                    <label for="edit-start-date-{{ $absence->id }}">Start Date</label>
+                    <input id="edit-start-date-{{ $absence->id }}" name="start_date" type="date" value="{{ old('start_date', $absence->start_date?->format('Y-m-d')) }}" required>
+                </div>
+                <div class="field">
+                    <label for="edit-end-date-{{ $absence->id }}">End Date</label>
+                    <input id="edit-end-date-{{ $absence->id }}" name="end_date" type="date" value="{{ old('end_date', $absence->end_date?->format('Y-m-d')) }}" required>
                 </div>
                 <div class="field">
                     <label for="edit-reason-{{ $absence->id }}">Reason</label>
@@ -136,7 +166,9 @@
             </form>
         </div>
     </div>
+    @endperm
 
+    @perm('absences.delete')
     <div class="modal" id="absence-delete-{{ $absence->id }}">
         <div class="modal-backdrop" data-modal-close></div>
         <div class="modal-card">
@@ -144,7 +176,7 @@
                 <h2>Delete Absence</h2>
                 <button class="btn-outline" type="button" data-modal-close>Close</button>
             </div>
-            <p>Delete absence record for <strong>{{ $absence->student?->name ?? '-' }}</strong>?</p>
+                        <p>Delete absence record for <strong>{{ $absence->student?->name ?? '-' }}</strong>?</p>
             <form method="POST" action="{{ route('dashboard.absences.destroy', ['absence' => $absence, 'lang' => app()->getLocale()]) }}">
                 @csrf
                 @method('DELETE')
@@ -154,5 +186,6 @@
             </form>
         </div>
     </div>
+    @endperm
 @endforeach
 @endsection

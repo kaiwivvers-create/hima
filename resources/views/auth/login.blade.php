@@ -97,6 +97,7 @@
                         <input type="checkbox" name="remember" style="width:auto;margin:0;">
                         {{ __('auth.remember') }}
                     </label>
+                    <a href="{{ route('password.request') }}" style="font-size:.9rem;">Forgot password?</a>
                 </div>
 
                 <button class="btn" type="submit">

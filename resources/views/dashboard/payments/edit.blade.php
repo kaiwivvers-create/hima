@@ -13,7 +13,7 @@
             <label for="student_id">Student</label>
             <select id="student_id" name="student_id" required>
                 @foreach ($students as $student)
-                    <option value="{{ $student->id }}" @selected((string) old('student_id', $payment->student_id) === (string) $student->id)>{{ $student->name }} ({{ $student->class_name }})</option>
+                    <option value="{{ $student->id }}" @selected((string) old('student_id', $payment->student_id) === (string) $student->id)>{{ $student->name }} ({{ $student->email }})</option>
                 @endforeach
             </select>
             @error('student_id')<div class="error">{{ $message }}</div>@enderror

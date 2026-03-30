@@ -1,0 +1,25 @@
+<?php
+
+return [
+    'user_activity_title' => '用户活动',
+    'user_activity_nav' => '用户活动',
+    'when' => '时间',
+    'actor' => '执行者',
+    'action' => '操作',
+    'description' => '描述',
+    'view' => '查看',
+    'system' => '系统',
+    'no_activity' => '暂无活动。',
+    'activity_detail' => '活动详情',
+    'close' => '关闭',
+    'subject' => '对象',
+    'deleted' => '已删除',
+    'no_subject' => '未找到对象。',
+    'metadata' => '元数据',
+    'no_metadata' => '无元数据。',
+    'revert' => '恢复',
+    'permanently_delete' => '永久删除',
+    'version_history' => '版本历史',
+    'no_versions' => '暂无版本。',
+    'revert_to' => '恢复到',
+];

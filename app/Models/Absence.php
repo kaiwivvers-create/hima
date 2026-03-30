@@ -4,12 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\User;
 
 class Absence extends Model
 {
     protected $fillable = [
         'student_id',
-        'absence_date',
+        'start_date',
+        'end_date',
         'reason',
         'verification_status',
         'submitted_by',
@@ -18,12 +20,13 @@ class Absence extends Model
     protected function casts(): array
     {
         return [
-            'absence_date' => 'date',
+            'start_date' => 'date',
+            'end_date' => 'date',
         ];
     }
 
     public function student(): BelongsTo
     {
-        return $this->belongsTo(Student::class);
+        return $this->belongsTo(User::class, 'student_id');
     }
 }

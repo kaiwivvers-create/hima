@@ -1,0 +1,25 @@
+<?php
+
+return [
+    'user_activity_title' => 'Aktivitas Pengguna',
+    'user_activity_nav' => 'Aktivitas Pengguna',
+    'when' => 'Waktu',
+    'actor' => 'Pelaku',
+    'action' => 'Aksi',
+    'description' => 'Deskripsi',
+    'view' => 'Lihat',
+    'system' => 'Sistem',
+    'no_activity' => 'Belum ada aktivitas.',
+    'activity_detail' => 'Detail Aktivitas',
+    'close' => 'Tutup',
+    'subject' => 'Subjek',
+    'deleted' => 'terhapus',
+    'no_subject' => 'Subjek tidak ditemukan.',
+    'metadata' => 'Metadata',
+    'no_metadata' => 'Tidak ada metadata.',
+    'revert' => 'Pulihkan',
+    'permanently_delete' => 'Hapus Permanen',
+    'version_history' => 'Riwayat Versi',
+    'no_versions' => 'Belum ada versi.',
+    'revert_to' => 'Pulihkan Ke',
+];

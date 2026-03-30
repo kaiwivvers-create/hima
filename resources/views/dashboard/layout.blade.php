@@ -41,6 +41,8 @@
             position: sticky;
             top: 0;
             height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
         .brand {
@@ -52,6 +54,49 @@
         .nav {
             display: grid;
             gap: .45rem;
+            flex: 1;
+            align-content: start;
+        }
+
+        .sidebar-footer {
+            margin: .4rem -0.6rem 0;
+            padding: .9rem .6rem .6rem;
+            border-top: 1px dashed var(--line);
+            display: flex;
+            gap: .7rem;
+            align-items: center;
+            color: var(--ink);
+            border-radius: 12px;
+            text-decoration: none;
+            background: transparent;
+            border: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .sidebar-footer:hover {
+            color: var(--ink);
+            background: rgba(255,255,255,.4);
+        }
+
+        .avatar {
+            width: 46px;
+            height: 46px;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            background: #fff7d1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+        }
+
+        .avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         .nav-link {
@@ -224,7 +269,9 @@
         .modal-backdrop {
             position: absolute;
             inset: 0;
-            background: rgba(20, 14, 0, .45);
+            background: rgba(20, 14, 0, .65);
+            opacity: 0;
+            transition: opacity .2s ease;
         }
 
         .modal-card {
@@ -238,6 +285,18 @@
             border-radius: 12px;
             padding: 1rem;
             box-shadow: 0 14px 35px rgba(0, 0, 0, .2);
+            opacity: 0;
+            transform: translateY(16px);
+            transition: opacity .2s ease, transform .2s ease;
+        }
+
+        .modal.active .modal-backdrop {
+            opacity: 1;
+        }
+
+        .modal.active .modal-card {
+            opacity: 1;
+            transform: translateY(0);
         }
 
         .modal-head {
@@ -270,18 +329,72 @@
         $currentRoute = request()->route()?->getName() ?? '';
         $lang = app()->getLocale();
         $withLang = static fn (string $routeName, array $params = []): string => route($routeName, array_merge($params, ['lang' => $lang]));
+        $sidebarUser = auth()->user();
+        $sidebarAvatar = $sidebarUser?->avatar_path ? asset('storage/'.$sidebarUser->avatar_path) : null;
+        $sidebarInitial = strtoupper(substr($sidebarUser?->name ?? 'U', 0, 1));
+        $sidebarCanAll = $sidebarUser?->role === 'super admin';
+        $sidebarPermissions = [];
+        if (!$sidebarCanAll && $sidebarUser) {
+            $roleId = \Illuminate\Support\Facades\DB::table('roles')->where('name', $sidebarUser->role)->value('id');
+            if ($roleId) {
+                $sidebarPermissions = \Illuminate\Support\Facades\DB::table('role_permission')
+                    ->join('permissions', 'permissions.id', '=', 'role_permission.permission_id')
+                    ->where('role_permission.role_id', $roleId)
+                    ->pluck('permissions.name')
+                    ->all();
+            }
+        }
+        $can = static fn (string $permission): bool => $sidebarCanAll || in_array($permission, $sidebarPermissions, true);
     @endphp
 
     <div class="app">
         <aside class="sidebar">
             <p class="brand">Student Portal</p>
             <nav class="nav">
-                <a href="{{ $withLang('dashboard') }}" class="nav-link {{ $currentRoute === 'dashboard' ? 'active' : '' }}">Overview</a>
-                <a href="{{ $withLang('dashboard.attendances.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.attendances.') ? 'active' : '' }}">Attendance</a>
-                <a href="{{ $withLang('dashboard.payments.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.payments.') ? 'active' : '' }}">Payments</a>
-                <a href="{{ $withLang('dashboard.absences.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.absences.') ? 'active' : '' }}">Absence Notes</a>
-                <a href="{{ $withLang('dashboard.students.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.students.') ? 'active' : '' }}">Students</a>
+                @if ($can('dashboard.view'))
+                    <a href="{{ $withLang('dashboard') }}" class="nav-link {{ $currentRoute === 'dashboard' ? 'active' : '' }}">Overview</a>
+                @endif
+                @if ($can('attendance.view'))
+                    <a href="{{ $withLang('dashboard.attendances.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.attendances.') ? 'active' : '' }}">Attendance</a>
+                @endif
+                @if ($can('payments.view'))
+                    <a href="{{ $withLang('dashboard.payments.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.payments.') ? 'active' : '' }}">Payments</a>
+                @endif
+                @if ($can('absences.view'))
+                    <a href="{{ $withLang('dashboard.absences.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.absences.') ? 'active' : '' }}">Absence Notes</a>
+                @endif
+                @if ($can('students.view'))
+                    <a href="{{ $withLang('dashboard.students.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.students.') ? 'active' : '' }}">Students</a>
+                @endif
+                @if ($can('users.view'))
+                    <a href="{{ $withLang('dashboard.users.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.users.') ? 'active' : '' }}">Users</a>
+                @endif
+                @if ($sidebarUser && in_array($sidebarUser->role, ['student', 'parent'], true))
+                    <a href="{{ $withLang('dashboard.connections.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.connections.') ? 'active' : '' }}">Connections</a>
+                @endif
+                @if ($can('admin.activities.view') || $can('admin.permissions.manage'))
+                    <p class="muted" style="margin:.7rem 0 .2rem;font-weight:700;">Admin</p>
+                @endif
+                @if ($can('admin.activities.view'))
+                    <a href="{{ $withLang('dashboard.admin.activities.index') }}" class="nav-link {{ $currentRoute === 'dashboard.admin.activities.index' ? 'active' : '' }}">{{ __('dashboard.user_activity_nav') }}</a>
+                @endif
+                @if ($can('admin.permissions.manage'))
+                    <a href="{{ $withLang('dashboard.admin.permissions.index') }}" class="nav-link {{ $currentRoute === 'dashboard.admin.permissions.index' ? 'active' : '' }}">Permissions</a>
+                @endif
             </nav>
+            <button type="button" class="sidebar-footer" data-modal-open="profile-modal">
+                <div class="avatar">
+                    @if ($sidebarAvatar)
+                        <img src="{{ $sidebarAvatar }}" alt="Avatar">
+                    @else
+                        {{ $sidebarInitial }}
+                    @endif
+                </div>
+                <div>
+                    <div style="font-weight:800;font-size:1rem;line-height:1.1;">{{ $sidebarUser?->name }}</div>
+                    <div class="muted" style="font-size:.85rem;">{{ $sidebarUser?->email }}</div>
+                </div>
+            </button>
         </aside>
 
         <main class="main">
@@ -294,7 +407,6 @@
                         <option value="id" @selected(app()->getLocale() === 'id')>Bahasa Indonesia</option>
                         <option value="zh" @selected(app()->getLocale() === 'zh')>Chinese</option>
                     </select>
-                    <span class="btn-outline">{{ auth()->user()->name }} ({{ auth()->user()->role }})</span>
                     <form method="POST" action="{{ route('logout', ['lang' => app()->getLocale()]) }}">
                         @csrf
                         <button type="submit" class="btn">Log out</button>
@@ -312,6 +424,90 @@
 
             @yield('content')
         </main>
+    </div>
+
+    <div class="modal" id="profile-modal">
+        <div class="modal-backdrop" data-modal-close></div>
+        <div class="modal-card">
+            <div class="modal-head">
+                <h2>Profile Settings</h2>
+                <button class="btn-outline" type="button" data-modal-close>Close</button>
+            </div>
+            <div class="grid">
+                <section class="card" style="grid-column: span 6;">
+                    <h3 style="margin:0 0 .6rem;font-size:1rem;">Profile</h3>
+                    <form method="POST" action="{{ route('dashboard.profile.update', ['lang' => app()->getLocale()]) }}" id="profile-form">
+                        @csrf
+                        <div class="field">
+                            <label for="profile-name">Display Name</label>
+                            <input id="profile-name" name="name" type="text" value="{{ $sidebarUser?->name }}" required>
+                        </div>
+                        <div class="field">
+                            <label>Email</label>
+                            <input type="text" value="{{ $sidebarUser?->email }}" readonly>
+                        </div>
+
+                        <div class="field">
+                            <label>Profile Photo</label>
+                            <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;">
+                                <div style="width:96px;height:96px;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#fff7d1;display:flex;align-items:center;justify-content:center;">
+                                    @if ($sidebarAvatar)
+                                        <img src="{{ $sidebarAvatar }}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;">
+                                    @else
+                                        <span class="muted">No photo</span>
+                                    @endif
+                                </div>
+                                <div>
+                                    <input id="avatar-input" type="file" accept="image/*">
+                                    <input type="hidden" name="avatar_cropped" id="avatar-cropped">
+                                    <p class="muted" style="margin:.3rem 0 0;">Upload a square photo. You can crop it below.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="cropper" class="card" style="display:none;margin-top:.6rem;">
+                            <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center;">
+                                <canvas id="crop-canvas" width="240" height="240" style="border:1px solid var(--line);border-radius:12px;background:#fff7d1;"></canvas>
+                                <div>
+                                    <label for="zoom" class="muted" style="display:block;margin-bottom:.3rem;">Zoom</label>
+                                    <input id="zoom" type="range" min="1" max="3" step="0.01" value="1">
+                                    <div class="actions" style="margin-top:.6rem;">
+                                        <button type="button" class="btn-outline" id="use-crop">Use Crop</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="actions" style="margin-top:.8rem;">
+                            <button type="submit" class="btn">Save Profile</button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="card" style="grid-column: span 6;">
+                    <h3 style="margin:0 0 .6rem;font-size:1rem;">Change Password</h3>
+                    <form method="POST" action="{{ route('dashboard.profile.password', ['lang' => app()->getLocale()]) }}">
+                        @csrf
+                        <div class="field">
+                            <label for="current_password">Current Password</label>
+                            <input id="current_password" name="current_password" type="password" required>
+                        </div>
+                        <div class="field">
+                            <label for="password">New Password</label>
+                            <input id="password" name="password" type="password" minlength="6" required>
+                        </div>
+                        <div class="field">
+                            <label for="password_confirmation">Confirm New Password</label>
+                            <input id="password_confirmation" name="password_confirmation" type="password" minlength="6" required>
+                        </div>
+                        <div class="actions">
+                            <button type="submit" class="btn">Update Password</button>
+                            <a class="btn-outline" href="{{ route('password.request') }}">Forgot password?</a>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -360,6 +556,110 @@
                     closeModal(modal);
                 });
             });
+        })();
+
+        (function () {
+            const input = document.getElementById('avatar-input');
+            const cropper = document.getElementById('cropper');
+            const canvas = document.getElementById('crop-canvas');
+            const zoom = document.getElementById('zoom');
+            const useCrop = document.getElementById('use-crop');
+            const output = document.getElementById('avatar-cropped');
+
+            if (!input || !canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            let image = null;
+            let state = { x: 0, y: 0, scale: 1, dragging: false, lastX: 0, lastY: 0 };
+
+            function draw() {
+                if (!image) return;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const baseScale = Math.max(canvas.width / image.width, canvas.height / image.height);
+                const totalScale = baseScale * state.scale;
+                const drawW = image.width * totalScale;
+                const drawH = image.height * totalScale;
+                const dx = (canvas.width - drawW) / 2 + state.x;
+                const dy = (canvas.height - drawH) / 2 + state.y;
+
+                ctx.save();
+                ctx.fillStyle = '#fff7d1';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(image, dx, dy, drawW, drawH);
+                ctx.restore();
+            }
+
+            function clamp() {
+                if (!image) return;
+                const baseScale = Math.max(canvas.width / image.width, canvas.height / image.height);
+                const totalScale = baseScale * state.scale;
+                const drawW = image.width * totalScale;
+                const drawH = image.height * totalScale;
+
+                const minX = (canvas.width - drawW);
+                const minY = (canvas.height - drawH);
+                state.x = Math.min(Math.max(state.x, minX / 2), -minX / 2);
+                state.y = Math.min(Math.max(state.y, minY / 2), -minY / 2);
+            }
+
+            function updateCrop() {
+                output.value = canvas.toDataURL('image/png');
+            }
+
+            input.addEventListener('change', function () {
+                const file = this.files && this.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    image = new Image();
+                    image.onload = function () {
+                        state = { x: 0, y: 0, scale: 1, dragging: false, lastX: 0, lastY: 0 };
+                        zoom.value = '1';
+                        cropper.style.display = 'block';
+                        draw();
+                        updateCrop();
+                    };
+                    image.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+
+            zoom.addEventListener('input', function () {
+                state.scale = parseFloat(this.value);
+                clamp();
+                draw();
+                updateCrop();
+            });
+
+            canvas.addEventListener('mousedown', function (e) {
+                state.dragging = true;
+                state.lastX = e.offsetX;
+                state.lastY = e.offsetY;
+            });
+
+            window.addEventListener('mouseup', function () {
+                state.dragging = false;
+            });
+
+            canvas.addEventListener('mousemove', function (e) {
+                if (!state.dragging) return;
+                const dx = e.offsetX - state.lastX;
+                const dy = e.offsetY - state.lastY;
+                state.x += dx;
+                state.y += dy;
+                state.lastX = e.offsetX;
+                state.lastY = e.offsetY;
+                clamp();
+                draw();
+                updateCrop();
+            });
+
+            if (useCrop) {
+                useCrop.addEventListener('click', function () {
+                    updateCrop();
+                });
+            }
         })();
     </script>
 </body>

@@ -1,55 +1,84 @@
+@php
+    $dayLabels = [
+        'mon' => 'Mon',
+        'tue' => 'Tue',
+        'wed' => 'Wed',
+        'thu' => 'Thu',
+        'fri' => 'Fri',
+        'sat' => 'Sat',
+        'sun' => 'Sun',
+    ];
+@endphp
+
 @extends('dashboard.layout')
 
 @section('title', 'Students')
 @section('page_title', 'Students')
 
 @section('content')
-<div class="page-actions">
-    <button class="btn" type="button" data-modal-open="student-create-modal" @disabled($parents->isEmpty())>Add Student</button>
+<div class="page-actions" style="justify-content:space-between; align-items:flex-end; flex-wrap:wrap;">
+    <form method="GET" action="{{ route('dashboard.students.index', ['lang' => app()->getLocale()]) }}" class="actions" style="align-items:end; justify-content:flex-start;">
+        <div class="field" style="margin:0; min-width:220px;">
+            <label for="search">Search</label>
+            <input id="search" name="search" type="text" value="{{ $search ?? '' }}" placeholder="Name or email">
+        </div>
+        <button type="submit" class="btn-outline" style="padding:.52rem .8rem;">Search</button>
+    </form>
+    @perm('students.create')
+        <button class="btn" type="button" data-modal-open="student-create-modal" style="padding:.52rem .8rem;">Add Student</button>
+    @endperm
 </div>
-
-@if ($parents->isEmpty())
-    <section class="card" style="margin-bottom:.8rem;">
-        <p class="muted" style="margin:0;">No parent accounts found. Create/register a parent account first, then you can add students.</p>
-    </section>
-@endif
 
 <section class="card">
     <table class="table">
         <thead>
             <tr>
                 <th>Name</th>
-                <th>Class</th>
-                <th>Parent Name</th>
-                <th>Parent Contact</th>
+                <th>Email</th>
+                <th>Schedule</th>
+                <th>Program</th>
+                <th>Tuition</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody>
             @forelse ($students as $student)
+                @php
+                    $schedule = $student->schedule_days ?? [];
+                    $scheduleLabel = empty($schedule)
+                        ? 'All days'
+                        : collect($schedule)->map(fn ($day) => $dayLabels[$day] ?? strtoupper($day))->join(', ');
+                    $programLabel = $tuitionPrograms[$student->tuition_program]['label'] ?? '-';
+                @endphp
                 <tr>
                     <td>{{ $student->name }}</td>
-                    <td>{{ $student->class_name }}</td>
-                    <td>{{ $student->parent_name }}</td>
-                    <td>{{ $student->parent_contact }}</td>
+                    <td>{{ $student->email }}</td>
+                    <td>{{ $scheduleLabel }}</td>
+                    <td>{{ $programLabel }}</td>
+                    <td>{{ $student->tuition_amount !== null ? number_format((float) $student->tuition_amount, 2) : '-' }}</td>
                     <td>
                         <div class="actions">
-                            <button class="btn-outline" type="button" data-modal-open="student-edit-{{ $student->id }}">Edit</button>
-                            <button class="btn btn-danger" type="button" data-modal-open="student-delete-{{ $student->id }}">Delete</button>
+                            @perm('students.update')
+                                <button class="btn-outline" type="button" data-modal-open="student-edit-{{ $student->id }}">Edit</button>
+                            @endperm
+                            @perm('students.delete')
+                                <button class="btn btn-danger" type="button" data-modal-open="student-delete-{{ $student->id }}">Delete</button>
+                            @endperm
                         </div>
                     </td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="5" class="muted">No students found.</td>
+                    <td colspan="6" class="muted">No students found.</td>
                 </tr>
             @endforelse
         </tbody>
     </table>
 
-    <div class="pagination">{{ $students->withQueryString()->links() }}</div>
+    <div class="pagination">{{ $students->links() }}</div>
 </section>
 
+@perm('students.create')
 <div class="modal" id="student-create-modal">
     <div class="modal-backdrop" data-modal-close></div>
     <div class="modal-card">
@@ -60,29 +89,37 @@
         <form method="POST" action="{{ route('dashboard.students.store', ['lang' => app()->getLocale()]) }}">
             @csrf
             <div class="field">
-                <label for="create-name">Student Name</label>
+                <label for="create-name">Name</label>
                 <input id="create-name" name="name" type="text" required>
             </div>
             <div class="field">
-                <label for="create-class">Class</label>
-                <input id="create-class" name="class_name" type="text" required>
+                <label for="create-email">Email</label>
+                <input id="create-email" name="email" type="email" required>
             </div>
             <div class="field">
-                <label for="create-parent-user-id">Parent Account</label>
-                <select id="create-parent-user-id" name="parent_user_id" class="js-parent-select" data-name-target="create-parent-name" data-contact-target="create-parent-contact" required>
-                    <option value="">Select parent</option>
-                    @foreach ($parents as $parent)
-                        <option value="{{ $parent->id }}" data-parent-name="{{ $parent->name }}" data-parent-contact="{{ $parent->email }}">{{ $parent->name }} ({{ $parent->email }})</option>
+                <label for="create-password">Password</label>
+                <input id="create-password" name="password" type="password" minlength="6" required>
+            </div>
+            <div class="field">
+                <label>Schedule Days</label>
+                <div class="actions">
+                    @foreach ($days as $day)
+                        <label><input type="checkbox" name="schedule_days[]" value="{{ $day }}"> {{ $dayLabels[$day] ?? strtoupper($day) }}</label>
+                    @endforeach
+                </div>
+            </div>
+            <div class="field">
+                <label for="create-program">Tuition Program</label>
+                <select id="create-program" name="tuition_program" class="js-tuition-program" data-target="create-tuition">
+                    <option value="">Select program</option>
+                    @foreach ($tuitionPrograms as $key => $program)
+                        <option value="{{ $key }}" data-annual="{{ $program['monthly'] * 12 }}">{{ $program['label'] }}</option>
                     @endforeach
                 </select>
             </div>
             <div class="field">
-                <label for="create-parent-name">Parent Name (auto)</label>
-                <input id="create-parent-name" type="text" readonly>
-            </div>
-            <div class="field">
-                <label for="create-parent-contact">Parent Contact (auto)</label>
-                <input id="create-parent-contact" type="text" readonly>
+                <label for="create-tuition">Tuition Amount (per year)</label>
+                <input id="create-tuition" name="tuition_amount" type="number" min="0" step="0.01">
             </div>
             <div class="actions">
                 <button type="submit" class="btn">Save</button>
@@ -90,8 +127,13 @@
         </form>
     </div>
 </div>
+@endperm
 
 @foreach ($students as $student)
+    @php
+        $selectedDays = $student->schedule_days ?? [];
+    @endphp
+    @perm('students.update')
     <div class="modal" id="student-edit-{{ $student->id }}">
         <div class="modal-backdrop" data-modal-close></div>
         <div class="modal-card">
@@ -103,36 +145,40 @@
                 @csrf
                 @method('PUT')
                 <div class="field">
-                    <label for="edit-name-{{ $student->id }}">Student Name</label>
+                    <label for="edit-name-{{ $student->id }}">Name</label>
                     <input id="edit-name-{{ $student->id }}" name="name" type="text" value="{{ $student->name }}" required>
                 </div>
                 <div class="field">
-                    <label for="edit-class-{{ $student->id }}">Class</label>
-                    <input id="edit-class-{{ $student->id }}" name="class_name" type="text" value="{{ $student->class_name }}" required>
+                    <label for="edit-email-{{ $student->id }}">Email</label>
+                    <input id="edit-email-{{ $student->id }}" name="email" type="email" value="{{ $student->email }}" required>
                 </div>
                 <div class="field">
-                    <label for="edit-parent-user-id-{{ $student->id }}">Parent Account</label>
-                    <select id="edit-parent-user-id-{{ $student->id }}" name="parent_user_id" class="js-parent-select" data-name-target="edit-parent-name-{{ $student->id }}" data-contact-target="edit-parent-contact-{{ $student->id }}" required>
-                        <option value="">Select parent</option>
-                        @foreach ($parents as $parent)
-                            <option
-                                value="{{ $parent->id }}"
-                                data-parent-name="{{ $parent->name }}"
-                                data-parent-contact="{{ $parent->email }}"
-                                @selected((int) ($student->parent_user_id ?? 0) === (int) $parent->id)
-                            >
-                                {{ $parent->name }} ({{ $parent->email }})
-                            </option>
+                    <label for="edit-password-{{ $student->id }}">Password (leave blank to keep)</label>
+                    <input id="edit-password-{{ $student->id }}" name="password" type="password" minlength="6">
+                </div>
+                <div class="field">
+                    <label>Schedule Days</label>
+                    <div class="actions">
+                        @foreach ($days as $day)
+                            <label>
+                                <input type="checkbox" name="schedule_days[]" value="{{ $day }}" @checked(in_array($day, $selectedDays, true))>
+                                {{ $dayLabels[$day] ?? strtoupper($day) }}
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="edit-program-{{ $student->id }}">Tuition Program</label>
+                    <select id="edit-program-{{ $student->id }}" name="tuition_program" class="js-tuition-program" data-target="edit-tuition-{{ $student->id }}">
+                        <option value="">Select program</option>
+                        @foreach ($tuitionPrograms as $key => $program)
+                            <option value="{{ $key }}" data-annual="{{ $program['monthly'] * 12 }}" @selected($student->tuition_program === $key)>{{ $program['label'] }}</option>
                         @endforeach
                     </select>
                 </div>
                 <div class="field">
-                    <label for="edit-parent-name-{{ $student->id }}">Parent Name (auto)</label>
-                    <input id="edit-parent-name-{{ $student->id }}" type="text" value="{{ $student->parent_name }}" readonly>
-                </div>
-                <div class="field">
-                    <label for="edit-parent-contact-{{ $student->id }}">Parent Contact (auto)</label>
-                    <input id="edit-parent-contact-{{ $student->id }}" type="text" value="{{ $student->parent_contact }}" readonly>
+                    <label for="edit-tuition-{{ $student->id }}">Tuition Amount (per year)</label>
+                    <input id="edit-tuition-{{ $student->id }}" name="tuition_amount" type="number" min="0" step="0.01" value="{{ $student->tuition_amount }}">
                 </div>
                 <div class="actions">
                     <button type="submit" class="btn">Update</button>
@@ -140,7 +186,9 @@
             </form>
         </div>
     </div>
+    @endperm
 
+    @perm('students.delete')
     <div class="modal" id="student-delete-{{ $student->id }}">
         <div class="modal-backdrop" data-modal-close></div>
         <div class="modal-card">
@@ -158,25 +206,20 @@
             </form>
         </div>
     </div>
+    @endperm
 @endforeach
-
 <script>
     (function () {
-        function syncParentFields(select) {
-            const selected = select.options[select.selectedIndex];
-            const nameTarget = document.getElementById(select.dataset.nameTarget);
-            const contactTarget = document.getElementById(select.dataset.contactTarget);
-
-            if (!nameTarget || !contactTarget) return;
-
-            nameTarget.value = selected ? (selected.dataset.parentName || '') : '';
-            contactTarget.value = selected ? (selected.dataset.parentContact || '') : '';
-        }
-
-        document.querySelectorAll('.js-parent-select').forEach(function (select) {
-            syncParentFields(select);
+        document.querySelectorAll('.js-tuition-program').forEach(function (select) {
             select.addEventListener('change', function () {
-                syncParentFields(select);
+                const selected = select.options[select.selectedIndex];
+                const annual = selected ? selected.dataset.annual : null;
+                const targetId = select.dataset.target;
+                const target = document.getElementById(targetId);
+                if (!target || !annual) return;
+                if (!target.value) {
+                    target.value = annual;
+                }
             });
         });
     })();
