@@ -1,34 +1,26 @@
 <?php
 
+use App\Http\Controllers\Dashboard\AbsenceController;
+use App\Http\Controllers\Dashboard\AttendanceController;
+use App\Http\Controllers\Dashboard\DashboardController;
+use App\Http\Controllers\Dashboard\PaymentController;
+use App\Http\Controllers\Dashboard\StudentController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 
-$supportedLocales = ['en', 'id', 'zh'];
-$applyLocale = function (Request $request) use ($supportedLocales): void {
-    $requestedLocale = $request->query('lang', session('lang', config('app.locale')));
-    $locale = in_array($requestedLocale, $supportedLocales, true) ? $requestedLocale : config('app.fallback_locale');
-
-    app()->setLocale($locale);
-    session(['lang' => $locale]);
-};
-
-Route::get('/', function (Request $request) use ($applyLocale) {
-    $applyLocale($request);
-
+Route::get('/', function () {
     return view('welcome');
-});
+})->middleware('apply.locale');
 
-Route::middleware('guest')->group(function () use ($applyLocale) {
-    Route::get('/login', function (Request $request) use ($applyLocale) {
-        $applyLocale($request);
+Route::middleware(['guest', 'apply.locale'])->group(function () {
+    Route::get('/login', function () {
         return view('auth.login');
     })->name('login');
 
-    Route::post('/login', function (Request $request) use ($applyLocale) {
-        $applyLocale($request);
+    Route::post('/login', function (Request $request) {
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
@@ -45,8 +37,7 @@ Route::middleware('guest')->group(function () use ($applyLocale) {
             ->onlyInput('email');
     })->name('login.post');
 
-    Route::get('/register', function (Request $request) use ($applyLocale) {
-        $applyLocale($request);
+    Route::get('/register', function (Request $request) {
         $captchaA = random_int(1, 9);
         $captchaB = random_int(1, 9);
         $request->session()->put('register_captcha_answer', $captchaA + $captchaB);
@@ -57,8 +48,7 @@ Route::middleware('guest')->group(function () use ($applyLocale) {
         ]);
     })->name('register');
 
-    Route::post('/register', function (Request $request) use ($applyLocale) {
-        $applyLocale($request);
+    Route::post('/register', function (Request $request) {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
@@ -89,14 +79,17 @@ Route::middleware('guest')->group(function () use ($applyLocale) {
     })->name('register.post');
 });
 
-Route::middleware('auth')->group(function () use ($applyLocale) {
-    Route::get('/dashboard', function (Request $request) use ($applyLocale) {
-        $applyLocale($request);
-        return view('dashboard');
-    })->name('dashboard');
+Route::middleware(['auth', 'apply.locale'])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    Route::post('/logout', function (Request $request) use ($applyLocale) {
-        $applyLocale($request);
+    Route::prefix('/dashboard')->name('dashboard.')->group(function () {
+        Route::resource('students', StudentController::class)->except(['show']);
+        Route::resource('attendances', AttendanceController::class)->except(['show']);
+        Route::resource('payments', PaymentController::class)->except(['show']);
+        Route::resource('absences', AbsenceController::class)->except(['show']);
+    });
+
+    Route::post('/logout', function (Request $request) {
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

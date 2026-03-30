@@ -16,7 +16,7 @@ return [
     'section_3_body' => 'Ill change it later, rn theyre placeholders since ion have the actual images yet.',
 
     'person_title' => 'About This Person',
-    'person_body' => 'The one there on my left is my boyfriend, and on the right is my boyfriends boyfriend.',
+    'person_body' => 'Jane doe.',
 
     'map_title' => 'Location',
     'map_body' => 'This map shows the location of the school or tutoring center where the system is used.',

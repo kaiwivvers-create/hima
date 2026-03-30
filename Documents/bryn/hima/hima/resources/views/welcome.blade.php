@@ -441,9 +441,13 @@
         <div class="hero-content">
             <!-- FULL-WIDTH WELCOME PANEL -->
             <div class="hero-panel">
-                <img class="hero-panel-bg" src="{{ asset('https://images.cara.app/production/posts/e78a3ca9-f599-446e-8717-9f8e27263383/octopie-B2P83Y42IECMIj_cmPTDt-0C32E370-17E0-422E-8280-F1B1148145FB.jpg?width=1920') }}" alt="Welcome Panel Background">
+                <img class="hero-panel-bg" src=
+                {{-- {{ asset('https://images.cara.app/production/posts/e78a3ca9-f599-446e-8717-9f8e27263383/octopie-B2P83Y42IECMIj_cmPTDt-0C32E370-17E0-422E-8280-F1B1148145FB.jpg?width=1920') }}"  --}}
+                alt="Welcome Panel Background">
                 <div class="hero-panel-content">
-                    <img class="hero-foreground" src="{{ asset('https://cdn.cara.app/production/posts/e78a3ca9-f599-446e-8717-9f8e27263383/octopie-QKjPoOAJs5a1kll-Keqe--C99D6EE9-8525-4E9E-BCB8-0A82BD1D1C90.jpg') }}" alt="Hero Foreground Image">
+                    <img class="hero-foreground" src="
+                    {{-- {{ asset('https://cdn.cara.app/production/posts/e78a3ca9-f599-446e-8717-9f8e27263383/octopie-QKjPoOAJs5a1kll-Keqe--C99D6EE9-8525-4E9E-BCB8-0A82BD1D1C90.jpg') }}"  --}}
+                     alt="Hero Foreground Image">
                     <h1>{{ __('welcome.hero_title') }}</h1>
                     <p class="lead">{{ __('welcome.hero_description') }}</p>
                 </div>
