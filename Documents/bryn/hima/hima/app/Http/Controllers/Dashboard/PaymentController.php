@@ -16,6 +16,7 @@ class PaymentController extends Controller
     {
         return view('dashboard.payments.index', [
             'payments' => Payment::with('student')->latest('due_date')->paginate(10),
+            'students' => Student::orderBy('name')->get(),
         ]);
     }
 

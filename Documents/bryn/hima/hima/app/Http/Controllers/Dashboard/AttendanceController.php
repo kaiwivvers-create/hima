@@ -12,11 +12,46 @@ use Illuminate\View\View;
 
 class AttendanceController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
+        $attendanceDate = $request->query('date', now()->toDateString());
+        $students = Student::orderBy('name')->get();
+
+        $records = Attendance::whereDate('attendance_date', $attendanceDate)
+            ->get()
+            ->keyBy('student_id');
+
         return view('dashboard.attendances.index', [
-            'attendances' => Attendance::with('student')->latest('attendance_date')->paginate(10),
+            'students' => $students,
+            'attendanceDate' => $attendanceDate,
+            'records' => $records,
         ]);
+    }
+
+    public function mark(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'student_id' => ['required', 'exists:students,id'],
+            'attendance_date' => ['required', 'date'],
+            'status' => ['required', Rule::in(['present', 'sick', 'izin', 'absent'])],
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        Attendance::updateOrCreate(
+            [
+                'student_id' => $validated['student_id'],
+                'attendance_date' => $validated['attendance_date'],
+            ],
+            [
+                'status' => $this->toDatabaseStatus($validated['status']),
+                'notes' => $validated['notes'] ?? null,
+            ]
+        );
+
+        return redirect()->route('dashboard.attendances.index', [
+            'lang' => app()->getLocale(),
+            'date' => $validated['attendance_date'],
+        ])->with('success', 'Attendance saved.');
     }
 
     public function create(): View
@@ -82,5 +117,14 @@ class AttendanceController extends Controller
 
         return redirect()->route('dashboard.attendances.index', ['lang' => app()->getLocale()])
             ->with('success', 'Attendance record deleted successfully.');
+    }
+
+    private function toDatabaseStatus(string $status): string
+    {
+        return match ($status) {
+            'sick' => 'late',
+            'izin' => 'excused',
+            default => $status,
+        };
     }
 }

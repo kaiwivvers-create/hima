@@ -209,6 +209,50 @@
 
         .pagination { margin-top: .8rem; }
 
+        .modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 60;
+            padding: 1rem;
+        }
+
+        .modal.active { display: flex; }
+
+        .modal-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(20, 14, 0, .45);
+        }
+
+        .modal-card {
+            position: relative;
+            z-index: 1;
+            width: min(760px, 100%);
+            max-height: 92vh;
+            overflow: auto;
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 14px 35px rgba(0, 0, 0, .2);
+        }
+
+        .modal-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: .8rem;
+            margin-bottom: .8rem;
+        }
+
+        .modal-head h2 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+
         @media (max-width: 920px) {
             .app { grid-template-columns: 1fr; }
             .sidebar {
@@ -279,6 +323,42 @@
                 const nextUrl = new URL(window.location.href);
                 nextUrl.searchParams.set('lang', this.value);
                 window.location.href = nextUrl.toString();
+            });
+        })();
+
+        (function () {
+            const body = document.body;
+
+            function closeModal(modal) {
+                modal.classList.remove('active');
+                body.style.overflow = '';
+            }
+
+            document.addEventListener('click', function (event) {
+                const openTrigger = event.target.closest('[data-modal-open]');
+                if (openTrigger) {
+                    const modalId = openTrigger.getAttribute('data-modal-open');
+                    const modal = document.getElementById(modalId);
+                    if (modal) {
+                        modal.classList.add('active');
+                        body.style.overflow = 'hidden';
+                    }
+                    return;
+                }
+
+                const closeTrigger = event.target.closest('[data-modal-close]');
+                if (closeTrigger) {
+                    const modal = closeTrigger.closest('.modal');
+                    if (modal) closeModal(modal);
+                }
+            });
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key !== 'Escape') return;
+
+                document.querySelectorAll('.modal.active').forEach(function (modal) {
+                    closeModal(modal);
+                });
             });
         })();
     </script>

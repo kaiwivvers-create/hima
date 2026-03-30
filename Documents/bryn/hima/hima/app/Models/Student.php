@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Student extends Model
@@ -10,9 +11,15 @@ class Student extends Model
     protected $fillable = [
         'name',
         'class_name',
+        'parent_user_id',
         'parent_name',
         'parent_contact',
     ];
+
+    public function parentUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'parent_user_id');
+    }
 
     public function attendances(): HasMany
     {

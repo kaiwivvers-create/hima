@@ -16,6 +16,7 @@ class AbsenceController extends Controller
     {
         return view('dashboard.absences.index', [
             'absences' => Absence::with('student')->latest('absence_date')->paginate(10),
+            'students' => Student::orderBy('name')->get(),
         ]);
     }
 

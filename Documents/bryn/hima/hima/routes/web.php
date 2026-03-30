@@ -83,6 +83,7 @@ Route::middleware(['auth', 'apply.locale'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::prefix('/dashboard')->name('dashboard.')->group(function () {
+        Route::post('attendances/mark', [AttendanceController::class, 'mark'])->name('attendances.mark');
         Route::resource('students', StudentController::class)->except(['show']);
         Route::resource('attendances', AttendanceController::class)->except(['show']);
         Route::resource('payments', PaymentController::class)->except(['show']);
