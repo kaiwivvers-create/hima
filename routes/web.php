@@ -2,17 +2,21 @@
 
 use App\Http\Controllers\Dashboard\AbsenceController;
 use App\Http\Controllers\Dashboard\ActivityController;
+use App\Http\Controllers\Dashboard\AppSettingsController;
 use App\Http\Controllers\Dashboard\AttendanceController;
 use App\Http\Controllers\Dashboard\DashboardController;
 use App\Http\Controllers\Dashboard\ParentConnectionController;
 use App\Http\Controllers\Dashboard\PaymentController;
+use App\Http\Controllers\Dashboard\NotificationController;
 use App\Http\Controllers\Dashboard\ProfileController;
 use App\Http\Controllers\Dashboard\PermissionController;
 use App\Http\Controllers\Dashboard\ConnectionsController;
+use App\Http\Controllers\Dashboard\DatabaseToolsController;
 use App\Http\Controllers\Dashboard\StudentController;
 use App\Http\Controllers\Dashboard\UserController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Models\User;
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -64,7 +68,7 @@ Route::middleware(['guest', 'apply.locale'])->group(function () {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'role' => ['required', 'in:student,parent'],
+            'role' => ['required', 'in:parent'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'captcha_answer' => ['required', 'integer'],
         ]);
@@ -79,7 +83,7 @@ Route::middleware(['guest', 'apply.locale'])->group(function () {
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
-            'role' => $validated['role'],
+            'role' => 'parent',
             'password' => Hash::make($validated['password']),
         ]);
 
@@ -92,15 +96,41 @@ Route::middleware(['guest', 'apply.locale'])->group(function () {
             null,
             \App\Services\ActivityLogger::snapshot($user, 'user')
         );
+        $user->sendEmailVerificationNotification();
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect('/dashboard');
+        return redirect()->route('verification.notice', ['lang' => app()->getLocale()])
+            ->with('success', __('auth.verify_email_sent'));
     })->name('register.post');
 });
 
 Route::middleware(['auth', 'apply.locale'])->group(function () {
+    Route::get('/email/verify', function () {
+        return view('auth.verify-email');
+    })->name('verification.notice');
+
+    Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
+        $request->fulfill();
+
+        return redirect()->route('dashboard', ['lang' => app()->getLocale()])
+            ->with('success', __('auth.verify_email_done'));
+    })->middleware('signed')->name('verification.verify');
+
+    Route::post('/email/verification-notification', function (Request $request) {
+        $request->user()->sendEmailVerificationNotification();
+
+        return back()->with('success', __('auth.verify_email_resent'));
+    })->middleware('throttle:6,1')->name('verification.send');
+
+    Route::middleware('verified')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/notifications', [NotificationController::class, 'index'])->name('dashboard.notifications.index');
+    Route::post('/dashboard/notifications/read-all', [NotificationController::class, 'readAll'])->name('dashboard.notifications.read-all');
+    Route::post('/dashboard/notifications/{notification}/read', [NotificationController::class, 'read'])->name('dashboard.notifications.read');
+    Route::post('/dashboard/notifications/{notification}/archive', [NotificationController::class, 'archive'])->name('dashboard.notifications.archive');
+    Route::post('/dashboard/notifications/{notification}/unarchive', [NotificationController::class, 'unarchive'])->name('dashboard.notifications.unarchive');
+    Route::delete('/dashboard/notifications/{notification}', [NotificationController::class, 'destroy'])->name('dashboard.notifications.destroy');
 
     Route::prefix('/dashboard')->name('dashboard.')->group(function () {
         Route::post('parent-connection/request', [ParentConnectionController::class, 'request'])->name('parent-connection.request');
@@ -138,6 +168,41 @@ Route::middleware(['auth', 'apply.locale'])->group(function () {
         Route::post('admin/permissions', [PermissionController::class, 'update'])
             ->middleware('permission:admin.permissions.manage')
             ->name('admin.permissions.update');
+        Route::get('admin/settings', [AppSettingsController::class, 'index'])
+            ->middleware('permission:admin.settings.manage')
+            ->name('admin.settings.index');
+        Route::post('admin/settings/branding', [AppSettingsController::class, 'updateBranding'])
+            ->middleware('permission:admin.settings.manage')
+            ->name('admin.settings.branding.update');
+        Route::post('admin/settings/content', [AppSettingsController::class, 'updateContent'])
+            ->middleware('permission:admin.settings.manage')
+            ->name('admin.settings.content.update');
+        Route::post('admin/settings/versions/{version}/apply-branding', [AppSettingsController::class, 'applyBrandingVersion'])
+            ->middleware('permission:admin.settings.manage')
+            ->whereNumber('version')
+            ->name('admin.settings.versions.apply-branding');
+        Route::post('admin/settings/versions/{version}/apply-content', [AppSettingsController::class, 'applyContentVersion'])
+            ->middleware('permission:admin.settings.manage')
+            ->whereNumber('version')
+            ->name('admin.settings.versions.apply-content');
+        Route::get('admin/database', [DatabaseToolsController::class, 'index'])
+            ->middleware('permission:admin.database.manage')
+            ->name('admin.database.index');
+        Route::post('admin/database/backup', [DatabaseToolsController::class, 'backup'])
+            ->middleware('permission:admin.database.manage')
+            ->name('admin.database.backup');
+        Route::get('admin/database/download/{file}', [DatabaseToolsController::class, 'download'])
+            ->middleware('permission:admin.database.manage')
+            ->name('admin.database.download');
+        Route::post('admin/database/import', [DatabaseToolsController::class, 'import'])
+            ->middleware('permission:admin.database.manage')
+            ->name('admin.database.import');
+        Route::post('admin/database/restore/{file}', [DatabaseToolsController::class, 'restore'])
+            ->middleware('permission:admin.database.manage')
+            ->name('admin.database.restore');
+        Route::post('admin/database/reset', [DatabaseToolsController::class, 'reset'])
+            ->middleware('permission:admin.database.manage')
+            ->name('admin.database.reset');
 
         Route::post('payments/plan', [PaymentController::class, 'generatePlan'])->name('payments.plan');
         Route::post('payments/{payment}/pay', [PaymentController::class, 'pay'])->name('payments.pay');
@@ -145,6 +210,7 @@ Route::middleware(['auth', 'apply.locale'])->group(function () {
         Route::resource('payments', PaymentController::class)->except(['show']);
 
         Route::resource('absences', AbsenceController::class)->except(['show']);
+    });
     });
 
     Route::post('/logout', function (Request $request) {

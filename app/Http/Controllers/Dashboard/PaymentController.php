@@ -28,6 +28,8 @@ class PaymentController extends Controller
         $user = request()->user();
         $query = Payment::with('student')->orderBy('due_date', 'asc');
         $students = User::where('role', 'student')->orderBy('name')->get();
+        $studentCards = collect();
+        $modalPayments = collect();
 
         if ($user && $user->role === 'student') {
             $query->where('student_id', $user->id);
@@ -41,9 +43,43 @@ class PaymentController extends Controller
             $students = $students->whereIn('id', $studentIds);
         }
 
+        $isAdminView = $user && $user->role !== 'parent' && $user->role !== 'student';
+        if ($isAdminView) {
+            $payments = $query->get();
+            $modalPayments = $payments;
+            $paymentsByStudent = $payments->groupBy('student_id');
+            $studentCards = $students->map(function ($student) use ($paymentsByStudent) {
+                $studentPayments = $paymentsByStudent->get($student->id, collect());
+                $total = (float) $studentPayments->sum('amount');
+                $paid = (float) $studentPayments->sum('paid_amount');
+                $percentRaw = $total > 0 ? round(($paid / $total) * 100, 1) : 0.0;
+                $fillPercent = max(0, min(100, $percentRaw));
+                $status = 'none';
+                if ($total > 0) {
+                    $status = $percentRaw >= 100 ? 'paid' : ($paid > 0 ? 'partial' : 'pending');
+                }
+
+                return [
+                    'student' => $student,
+                    'payments' => $studentPayments,
+                    'total' => $total,
+                    'paid' => $paid,
+                    'percent' => $percentRaw,
+                    'fill_percent' => $fillPercent,
+                    'status' => $status,
+                ];
+            });
+        } else {
+            $payments = $query->paginate(10);
+            $modalPayments = $payments->getCollection();
+        }
+
         return view('dashboard.payments.index', [
-            'payments' => $query->paginate(10),
+            'payments' => $payments,
             'students' => $students,
+            'studentCards' => $studentCards,
+            'modalPayments' => $modalPayments,
+            'isAdminView' => $isAdminView,
         ]);
     }
 

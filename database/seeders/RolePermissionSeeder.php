@@ -35,6 +35,8 @@ class RolePermissionSeeder extends Seeder
                 'students.create',
                 'students.update',
                 'students.delete',
+                'admin.settings.manage',
+                'admin.database.manage',
                 'profile.view',
                 'profile.update',
                 'profile.password',

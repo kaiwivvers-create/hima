@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ config('app.name', '') }}</title>
+    <title>{{ $appName ?? config('app.name', 'Student Portal') }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
@@ -419,17 +419,17 @@
                     @auth
                         <a href="{{ url('/dashboard') }}" class="btn btn-dark">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3V3zm10 0h8v5h-8V3zM3 13h5v8H3v-8zm7 0h11v8H10v-8z"/></svg>
-                            {{ __('welcome.nav_dashboard') }}
+                            {{ $appText['welcome_nav_dashboard'] ?? __('welcome.nav_dashboard') }}
                         </a>
                     @else
                         <a href="{{ route('login') }}" class="btn btn-login">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 17v-3h8v-4h-8V7l-5 5 5 5zm3 5H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7v2H7v16h7v2z"/></svg>
-                            {{ __('welcome.nav_login') }}
+                            {{ $appText['welcome_nav_login'] ?? __('welcome.nav_login') }}
                         </a>
                         @if (Route::has('register'))
                             <a href="{{ route('register') }}" class="btn btn-register">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 13a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm-8 7v-1.2a4.8 4.8 0 0 1 4.8-4.8h6.4A4.8 4.8 0 0 1 23 18.8V20h-2v-1.2a2.8 2.8 0 0 0-2.8-2.8h-6.4A2.8 2.8 0 0 0 9 18.8V20H7zm-6-9h5v2H1v-2zm0-4h7v2H1V7z"/></svg>
-                                {{ __('welcome.nav_register') }}
+                                {{ $appText['welcome_nav_register'] ?? __('welcome.nav_register') }}
                             </a>
                         @endif
                     @endauth
@@ -445,11 +445,15 @@
                 {{-- {{ asset('https://images.cara.app/production/posts/e78a3ca9-f599-446e-8717-9f8e27263383/octopie-B2P83Y42IECMIj_cmPTDt-0C32E370-17E0-422E-8280-F1B1148145FB.jpg?width=1920') }}"  --}}
                 alt="Welcome Panel Background">
                 <div class="hero-panel-content">
-                    <img class="hero-foreground" src="
-                    {{-- {{ asset('https://cdn.cara.app/production/posts/e78a3ca9-f599-446e-8717-9f8e27263383/octopie-QKjPoOAJs5a1kll-Keqe--C99D6EE9-8525-4E9E-BCB8-0A82BD1D1C90.jpg') }}"  --}}
-                     alt="Hero Foreground Image">
-                    <h1>{{ __('welcome.hero_title') }}</h1>
-                    <p class="lead">{{ __('welcome.hero_description') }}</p>
+                    @if (!empty($appLogoUrl))
+                        <img class="hero-foreground" src="{{ $appLogoUrl }}" alt="App Logo">
+                    @else
+                        <div class="hero-foreground" style="display:grid;place-items:center;font-weight:800;color:#2a2100;">
+                            {{ strtoupper(substr($appName ?? 'SP', 0, 1)) }}
+                        </div>
+                    @endif
+                    <h1>{{ $appName ?? __('welcome.hero_title') }}</h1>
+                    <p class="lead">{{ $appText['welcome_hero_description'] ?? __('welcome.hero_description') }}</p>
                 </div>
             </div>
         </div>
@@ -458,16 +462,16 @@
     <div class="container">
         <section class="grid">
             <article class="card">
-                <h2>{{ __('welcome.section_1_title') }}</h2>
-                <p>{{ __('welcome.section_1_body') }}</p>
+                <h2>{{ $appText['welcome_section_1_title'] ?? __('welcome.section_1_title') }}</h2>
+                <p>{{ $appText['welcome_section_1_body'] ?? __('welcome.section_1_body') }}</p>
             </article>
             <article class="card">
-                <h2>{{ __('welcome.section_2_title') }}</h2>
-                <p>{{ __('welcome.section_2_body') }}</p>
+                <h2>{{ $appText['welcome_section_2_title'] ?? __('welcome.section_2_title') }}</h2>
+                <p>{{ $appText['welcome_section_2_body'] ?? __('welcome.section_2_body') }}</p>
             </article>
             <article class="card">
-                <h2>{{ __('welcome.section_3_title') }}</h2>
-                <p>{{ __('welcome.section_3_body') }}</p>
+                <h2>{{ $appText['welcome_section_3_title'] ?? __('welcome.section_3_title') }}</h2>
+                <p>{{ $appText['welcome_section_3_body'] ?? __('welcome.section_3_body') }}</p>
             </article>
         </section>
 
@@ -475,15 +479,15 @@
             <div class="person-content">
                 <img class="person-image" src="{{ asset('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRaiS4ISNcvVQGuwoLhh_68R_ylknNfb6UzMg&s') }}" alt="Person Image">
                 <div class="person-text">
-                    <h2>{{ __('welcome.person_title') }}</h2>
-                    <p>{{ __('welcome.person_body') }}</p>
+                    <h2>{{ $appText['welcome_person_title'] ?? __('welcome.person_title') }}</h2>
+                    <p>{{ $appText['welcome_person_body'] ?? __('welcome.person_body') }}</p>
                 </div>
             </div>
         </section>
 
         <section class="map-row">
-            <h2>{{ __('welcome.map_title') }}</h2>
-            <p>{{ __('welcome.map_body') }}</p>
+            <h2>{{ $appText['welcome_map_title'] ?? __('welcome.map_title') }}</h2>
+            <p>{{ $appText['welcome_map_body'] ?? __('welcome.map_body') }}</p>
             <iframe
                 class="map-frame"
                 loading="lazy"
@@ -542,4 +546,3 @@
     </script>
 </body>
 </html>
-

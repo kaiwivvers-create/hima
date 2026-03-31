@@ -12,7 +12,7 @@
         'Absences' => ['absences.view', 'absences.create', 'absences.update', 'absences.delete'],
         'Students' => ['students.view', 'students.create', 'students.update', 'students.delete'],
         'Users' => ['users.view', 'users.create', 'users.update', 'users.delete'],
-        'Admin' => ['admin.activities.view', 'admin.permissions.manage'],
+        'Admin' => ['admin.activities.view', 'admin.permissions.manage', 'admin.settings.manage', 'admin.database.manage'],
         'Profile' => ['profile.view', 'profile.update', 'profile.password'],
     ];
     $permissionMap = $permissions->keyBy('name');

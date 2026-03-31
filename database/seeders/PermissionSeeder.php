@@ -36,6 +36,8 @@ class PermissionSeeder extends Seeder
             ['name' => 'users.delete', 'label' => 'Delete Users'],
             ['name' => 'admin.activities.view', 'label' => 'View User Activity'],
             ['name' => 'admin.permissions.manage', 'label' => 'Manage Permissions'],
+            ['name' => 'admin.settings.manage', 'label' => 'Manage App Settings'],
+            ['name' => 'admin.database.manage', 'label' => 'Manage Database Tools'],
             ['name' => 'profile.view', 'label' => 'View Profile'],
             ['name' => 'profile.update', 'label' => 'Update Profile'],
             ['name' => 'profile.password', 'label' => 'Change Password'],

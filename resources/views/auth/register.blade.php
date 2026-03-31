@@ -93,10 +93,12 @@
                 @error('email')<div class="error">{{ $message }}</div>@enderror
 
                 <label for="role">{{ __('auth.account_type') }}</label>
-                <select id="role" name="role" required>
-                    <option value="student" @selected(old('role', 'student') === 'student')>{{ __('auth.role_student') }}</option>
-                    <option value="parent" @selected(old('role') === 'parent')>{{ __('auth.role_parent') }}</option>
+                <input type="hidden" name="role" value="parent">
+                <select id="role" required disabled>
+                    <option value="student">{{ __('auth.role_student') }}</option>
+                    <option value="parent" selected>{{ __('auth.role_parent') }}</option>
                 </select>
+                <p class="muted" style="margin:-.45rem 0 .7rem;font-size:.82rem;">{{ __('auth.parent_only_register_note') }}</p>
                 @error('role')<div class="error">{{ $message }}</div>@enderror
 
                 <label for="password">{{ __('auth.password') }}</label>

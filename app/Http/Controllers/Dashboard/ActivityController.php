@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Models\Absence;
 use App\Models\Activity;
 use App\Models\ActivityVersion;
+use App\Models\Attendance;
+use App\Models\Payment;
 use App\Models\Student;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -123,7 +126,7 @@ class ActivityController extends Controller
         return back()->with('success', 'Reverted to selected version.');
     }
 
-    private function resolveSubject(Activity $activity): User|Student|null
+    private function resolveSubject(Activity $activity): User|Student|Attendance|Payment|Absence|null
     {
         if (!$activity->subject_type || !$activity->subject_id) {
             return null;
@@ -143,14 +146,14 @@ class ActivityController extends Controller
         ]);
     }
 
-    private function resolveSubjectByType(string $type, int $id): User|Student|null
+    private function resolveSubjectByType(string $type, int $id): User|Student|Attendance|Payment|Absence|null
     {
         return match ($type) {
             'user' => User::withTrashed()->find($id),
             'student' => Student::withTrashed()->find($id),
-            'attendance' => \App\Models\Attendance::find($id),
-            'payment' => \App\Models\Payment::find($id),
-            'absence' => \App\Models\Absence::find($id),
+            'attendance' => Attendance::find($id),
+            'payment' => Payment::find($id),
+            'absence' => Absence::find($id),
             default => null,
         };
     }

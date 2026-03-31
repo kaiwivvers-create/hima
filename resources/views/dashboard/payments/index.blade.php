@@ -54,57 +54,172 @@
     </section>
 @endif
 
-<section class="card">
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Student</th>
-                <th>Invoice</th>
-                <th>Amount</th>
-                <th>Paid Amount</th>
-                <th>Due Date</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse ($payments as $payment)
-                <tr>
-                    <td>{{ $payment->student?->name ?? '-' }}</td>
-                    <td>{{ $payment->invoice_no }}</td>
-                    <td>{{ number_format((float) $payment->amount, 2) }}</td>
-                    <td>{{ number_format((float) $payment->paid_amount, 2) }}</td>
-                    <td>{{ $payment->due_date?->format('Y-m-d') }}</td>
-                    <td>{{ ucfirst($payment->status) }}</td>
-                    <td>
-                        <div class="actions">
-                            @if ($payment->status === 'paid')
-                                <button class="btn-outline" type="button" data-modal-open="payment-receipt-{{ $payment->id }}">View</button>
-                            @endif
-                            @if (auth()->user()?->role === 'parent' && $payment->status !== 'paid')
-                                <button class="btn" type="button" data-modal-open="payment-pay-{{ $payment->id }}">Pay</button>
-                            @endif
-                            @if (auth()->user()?->role !== 'parent' && auth()->user()?->role !== 'student')
-                                @perm('payments.update')
-                                    <button class="btn-outline" type="button" data-modal-open="payment-edit-{{ $payment->id }}">Edit</button>
-                                @endperm
-                                @perm('payments.delete')
-                                    <button class="btn btn-danger" type="button" data-modal-open="payment-delete-{{ $payment->id }}">Delete</button>
-                                @endperm
-                            @endif
+@if ($isAdminView)
+    <section class="card">
+        <h2 style="margin:.1rem 0 .6rem;font-size:1.05rem;">Student Payment Overview</h2>
+        <div class="actions" style="margin-bottom:.8rem; align-items:end;">
+            <div class="field" style="margin:0; min-width:220px;">
+                <label for="student-search">Search</label>
+                <input id="student-search" type="search" placeholder="Search name or email">
+            </div>
+            <div class="field" style="margin:0; min-width:200px;">
+                <label for="student-status">Status</label>
+                <select id="student-status">
+                    <option value="all">All</option>
+                    <option value="paid">Paid</option>
+                    <option value="partial">Partial</option>
+                    <option value="pending">Pending</option>
+                    <option value="none">No payments</option>
+                </select>
+            </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:.7rem;">
+            @forelse ($studentCards as $card)
+                <div class="card" data-student-card data-name="{{ strtolower($card['student']->name) }} {{ strtolower($card['student']->email) }}" data-status="{{ $card['status'] }}" style="margin:0; border:1px solid var(--line); padding:.85rem 1rem;">
+                    <div style="display:flex; flex-wrap:wrap; gap:.8rem; align-items:center;">
+                        <div style="min-width:220px; flex:1 1 320px;">
+                            <p style="margin:0;font-weight:700;">{{ $card['student']->name }}</p>
+                            <p class="muted" style="margin:.2rem 0 0;">{{ $card['student']->email }}</p>
                         </div>
-                    </td>
-                </tr>
+                        <div style="flex:1 1 240px; min-width:220px;">
+                            <div style="display:grid; grid-template-columns:repeat(10,minmax(0,1fr)); gap:4px;">
+                                @for ($i = 1; $i <= 10; $i++)
+                                    <span style="height:10px; border-radius:999px; background:{{ $card['fill_percent'] >= ($i * 10) ? '#0d8bff' : '#d6dee8' }}; box-shadow: inset 0 0 0 1px {{ $card['fill_percent'] >= ($i * 10) ? '#0a6fcc' : '#c3cfdd' }}; display:block;"></span>
+                                @endfor
+                            </div>
+                            <div class="muted" style="display:flex; justify-content:space-between; margin-top:.35rem; font-size:.85rem;">
+                                <span>{{ number_format($card['paid'], 2) }}</span>
+                                <span>{{ number_format($card['total'], 2) }}</span>
+                            </div>
+                        </div>
+                        <div style="text-align:right; white-space:nowrap; min-width:110px; margin-left:auto;">
+                            @if ($card['status'] === 'paid')
+                                <span class="pill" style="background:#e8f7ef;color:#1e7b47;">Paid</span>
+                            @elseif ($card['status'] === 'partial')
+                                <span class="pill" style="background:#fff5e1;color:#8a5a00;">Partial</span>
+                            @elseif ($card['status'] === 'pending')
+                                <span class="pill" style="background:#ffecec;color:#9c2d2d;">Pending</span>
+                            @else
+                                <span class="pill" style="background:#f1f3f5;color:#5b6168;">No payments</span>
+                            @endif
+                            <p style="margin:.25rem 0 0;font-weight:700;">{{ rtrim(rtrim(number_format((float) $card['percent'], 1), '0'), '.') }}%</p>
+                            <p class="muted" style="margin:.1rem 0 0;font-size:.85rem;">paid</p>
+                        </div>
+                    </div>
+                    <details style="margin-top:.7rem;">
+                        <summary class="btn-outline" style="display:inline-flex; cursor:pointer;">View payments ({{ $card['payments']->count() }})</summary>
+                        <div style="margin-top:.6rem; display:flex; flex-direction:column; gap:.4rem;">
+                            @forelse ($card['payments'] as $payment)
+                                <div style="border:1px solid var(--line); border-radius:10px; padding:.6rem;">
+                                    <div style="display:flex; justify-content:space-between; gap:.6rem; flex-wrap:wrap;">
+                                        <div>
+                                            <p style="margin:0;font-weight:700;">{{ $payment->invoice_no }}</p>
+                                            <p class="muted" style="margin:.2rem 0 0;">Due {{ $payment->due_date?->format('Y-m-d') ?? '-' }}</p>
+                                        </div>
+                                        <div style="text-align:right;">
+                                            <p style="margin:0;font-weight:700;">{{ number_format((float) $payment->paid_amount, 2) }} / {{ number_format((float) $payment->amount, 2) }}</p>
+                                            <p class="muted" style="margin:.2rem 0 0;">{{ ucfirst($payment->status) }}</p>
+                                        </div>
+                                    </div>
+                                    <div class="actions" style="margin-top:.5rem;">
+                                        @if ($payment->status === 'paid')
+                                            <button class="btn-outline" type="button" data-modal-open="payment-receipt-{{ $payment->id }}">View</button>
+                                        @endif
+                                        @perm('payments.update')
+                                            <button class="btn-outline" type="button" data-modal-open="payment-edit-{{ $payment->id }}">Edit</button>
+                                        @endperm
+                                        @perm('payments.delete')
+                                            <button class="btn btn-danger" type="button" data-modal-open="payment-delete-{{ $payment->id }}">Delete</button>
+                                        @endperm
+                                    </div>
+                                </div>
+                            @empty
+                                <p class="muted" style="margin:0;">No payments yet.</p>
+                            @endforelse
+                        </div>
+                    </details>
+                </div>
             @empty
-                <tr>
-                    <td colspan="7" class="muted">No payment records found.</td>
-                </tr>
+                <div class="muted">No students found.</div>
             @endforelse
-        </tbody>
-    </table>
+        </div>
+    </section>
+    <script>
+        (function () {
+            const search = document.getElementById('student-search');
+            const status = document.getElementById('student-status');
+            const cards = Array.from(document.querySelectorAll('[data-student-card]'));
 
-    <div class="pagination">{{ $payments->withQueryString()->links() }}</div>
-</section>
+            function applyFilters() {
+                const q = (search?.value || '').trim().toLowerCase();
+                const s = status?.value || 'all';
+
+                cards.forEach((card) => {
+                    const name = card.getAttribute('data-name') || '';
+                    const cardStatus = card.getAttribute('data-status') || 'none';
+                    const matchesText = !q || name.includes(q);
+                    const matchesStatus = s === 'all' || cardStatus === s;
+                    card.style.display = matchesText && matchesStatus ? '' : 'none';
+                });
+            }
+
+            if (search) search.addEventListener('input', applyFilters);
+            if (status) status.addEventListener('change', applyFilters);
+        })();
+    </script>
+@else
+    <section class="card">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Invoice</th>
+                    <th>Amount</th>
+                    <th>Paid Amount</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($payments as $payment)
+                    <tr>
+                        <td>{{ $payment->student?->name ?? '-' }}</td>
+                        <td>{{ $payment->invoice_no }}</td>
+                        <td>{{ number_format((float) $payment->amount, 2) }}</td>
+                        <td>{{ number_format((float) $payment->paid_amount, 2) }}</td>
+                        <td>{{ $payment->due_date?->format('Y-m-d') }}</td>
+                        <td>{{ ucfirst($payment->status) }}</td>
+                        <td>
+                            <div class="actions">
+                                @if ($payment->status === 'paid')
+                                    <button class="btn-outline" type="button" data-modal-open="payment-receipt-{{ $payment->id }}">View</button>
+                                @endif
+                                @if (auth()->user()?->role === 'parent' && $payment->status !== 'paid')
+                                    <button class="btn" type="button" data-modal-open="payment-pay-{{ $payment->id }}">Pay</button>
+                                @endif
+                                @if (auth()->user()?->role !== 'parent' && auth()->user()?->role !== 'student')
+                                    @perm('payments.update')
+                                        <button class="btn-outline" type="button" data-modal-open="payment-edit-{{ $payment->id }}">Edit</button>
+                                    @endperm
+                                    @perm('payments.delete')
+                                        <button class="btn btn-danger" type="button" data-modal-open="payment-delete-{{ $payment->id }}">Delete</button>
+                                    @endperm
+                                @endif
+                            </div>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="7" class="muted">No payment records found.</td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+
+        <div class="pagination">{{ $payments->withQueryString()->links() }}</div>
+    </section>
+@endif
 
 @perm('payments.create')
 <div class="modal" id="payment-create-modal">
@@ -161,7 +276,7 @@
 </div>
 @endperm
 
-    @foreach ($payments as $payment)
+    @foreach ($modalPayments as $payment)
         @if (auth()->user()?->role === 'parent' && $payment->status !== 'paid')
             <div class="modal" id="payment-pay-{{ $payment->id }}">
                 <div class="modal-backdrop" data-modal-close></div>

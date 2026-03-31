@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', 'Dashboard')</title>
+    <title>@yield('title', __('Dashboard Overview'))</title>
     <style>
         :root {
             --ink: #2a2100;
@@ -49,6 +49,23 @@
             font-size: 1.05rem;
             font-weight: 800;
             margin: 0 0 1rem;
+            display: flex;
+            align-items: center;
+            gap: .55rem;
+        }
+
+        .brand-logo {
+            width: 32px;
+            height: 32px;
+            border-radius: 9px;
+            border: 1px solid var(--line);
+            object-fit: cover;
+            background: #fff7d1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .82rem;
+            font-weight: 800;
         }
 
         .nav {
@@ -110,6 +127,29 @@
             font-size: .95rem;
         }
 
+        .nav-link-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .45rem;
+        }
+
+        .nav-badge {
+            min-width: 1.2rem;
+            height: 1.2rem;
+            padding: 0 .32rem;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .72rem;
+            font-weight: 800;
+            line-height: 1;
+            background: #b51616;
+            color: #fff;
+            border: 1px solid rgba(255,255,255,.55);
+        }
+
         .nav-link:hover {
             border-color: var(--line);
             background: rgba(255,255,255,.55);
@@ -136,6 +176,13 @@
             margin: 0;
             font-size: 1.4rem;
             line-height: 1.2;
+        }
+
+        .top-subtitle {
+            margin: .2rem 0 0;
+            font-size: .92rem;
+            color: var(--muted);
+            font-weight: 600;
         }
 
         .top-right {
@@ -333,6 +380,7 @@
         $sidebarAvatar = $sidebarUser?->avatar_path ? asset('storage/'.$sidebarUser->avatar_path) : null;
         $sidebarInitial = strtoupper(substr($sidebarUser?->name ?? 'U', 0, 1));
         $sidebarCanAll = $sidebarUser?->role === 'super admin';
+        $unreadNotifications = 0;
         $sidebarPermissions = [];
         if (!$sidebarCanAll && $sidebarUser) {
             $roleId = \Illuminate\Support\Facades\DB::table('roles')->where('name', $sidebarUser->role)->value('id');
@@ -344,42 +392,72 @@
                     ->all();
             }
         }
+        if ($sidebarUser) {
+            $unreadNotifications = \Illuminate\Support\Facades\DB::table('user_notifications')
+                ->where('user_id', $sidebarUser->id)
+                ->whereNull('archived_at')
+                ->whereNull('read_at')
+                ->count();
+        }
         $can = static fn (string $permission): bool => $sidebarCanAll || in_array($permission, $sidebarPermissions, true);
     @endphp
 
     <div class="app">
         <aside class="sidebar">
-            <p class="brand">Student Portal</p>
+            <p class="brand">
+                @if ($appLogoUrl)
+                    <img src="{{ $appLogoUrl }}" alt="App Logo" class="brand-logo">
+                @else
+                    <span class="brand-logo">{{ strtoupper(substr($appName ?? 'SP', 0, 1)) }}</span>
+                @endif
+                <span>{{ $appName ?? 'Student Portal' }}</span>
+            </p>
             <nav class="nav">
                 @if ($can('dashboard.view'))
-                    <a href="{{ $withLang('dashboard') }}" class="nav-link {{ $currentRoute === 'dashboard' ? 'active' : '' }}">Overview</a>
+                    <a href="{{ $withLang('dashboard') }}" class="nav-link {{ $currentRoute === 'dashboard' ? 'active' : '' }}">{{ __('Overview') }}</a>
                 @endif
                 @if ($can('attendance.view'))
-                    <a href="{{ $withLang('dashboard.attendances.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.attendances.') ? 'active' : '' }}">Attendance</a>
+                    <a href="{{ $withLang('dashboard.attendances.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.attendances.') ? 'active' : '' }}">{{ __('Attendance') }}</a>
                 @endif
                 @if ($can('payments.view'))
-                    <a href="{{ $withLang('dashboard.payments.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.payments.') ? 'active' : '' }}">Payments</a>
+                    <a href="{{ $withLang('dashboard.payments.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.payments.') ? 'active' : '' }}">{{ __('Payments') }}</a>
                 @endif
                 @if ($can('absences.view'))
-                    <a href="{{ $withLang('dashboard.absences.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.absences.') ? 'active' : '' }}">Absence Notes</a>
+                    <a href="{{ $withLang('dashboard.absences.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.absences.') ? 'active' : '' }}">{{ __('Absence Notes') }}</a>
                 @endif
                 @if ($can('students.view'))
-                    <a href="{{ $withLang('dashboard.students.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.students.') ? 'active' : '' }}">Students</a>
+                    <a href="{{ $withLang('dashboard.students.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.students.') ? 'active' : '' }}">{{ __('Students') }}</a>
                 @endif
                 @if ($can('users.view'))
-                    <a href="{{ $withLang('dashboard.users.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.users.') ? 'active' : '' }}">Users</a>
+                    <a href="{{ $withLang('dashboard.users.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.users.') ? 'active' : '' }}">{{ __('Users') }}</a>
                 @endif
                 @if ($sidebarUser && in_array($sidebarUser->role, ['student', 'parent'], true))
-                    <a href="{{ $withLang('dashboard.connections.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.connections.') ? 'active' : '' }}">Connections</a>
+                    <a href="{{ $withLang('dashboard.connections.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.connections.') ? 'active' : '' }}">{{ __('Connections') }}</a>
                 @endif
-                @if ($can('admin.activities.view') || $can('admin.permissions.manage'))
-                    <p class="muted" style="margin:.7rem 0 .2rem;font-weight:700;">Admin</p>
+                @if ($sidebarUser)
+                    <a href="{{ $withLang('dashboard.notifications.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.notifications.') ? 'active' : '' }}">
+                        <span class="nav-link-row">
+                            <span>{{ __('Notifications') }}</span>
+                            @if ($unreadNotifications > 0)
+                                <span class="nav-badge">{{ $unreadNotifications > 99 ? '!' : $unreadNotifications }}</span>
+                            @endif
+                        </span>
+                    </a>
+                @endif
+                @if ($can('admin.activities.view') || $can('admin.permissions.manage') || $can('admin.settings.manage') || $can('admin.database.manage'))
+                    <p class="muted" style="margin:.7rem 0 .2rem;font-weight:700;">{{ __('Admin') }}</p>
                 @endif
                 @if ($can('admin.activities.view'))
                     <a href="{{ $withLang('dashboard.admin.activities.index') }}" class="nav-link {{ $currentRoute === 'dashboard.admin.activities.index' ? 'active' : '' }}">{{ __('dashboard.user_activity_nav') }}</a>
                 @endif
                 @if ($can('admin.permissions.manage'))
-                    <a href="{{ $withLang('dashboard.admin.permissions.index') }}" class="nav-link {{ $currentRoute === 'dashboard.admin.permissions.index' ? 'active' : '' }}">Permissions</a>
+                    <a href="{{ $withLang('dashboard.admin.permissions.index') }}" class="nav-link {{ $currentRoute === 'dashboard.admin.permissions.index' ? 'active' : '' }}">{{ __('Permissions') }}</a>
+                @endif
+                @if ($can('admin.settings.manage'))
+                    <a href="{{ $withLang('dashboard.admin.settings.index') }}" class="nav-link {{ $currentRoute === 'dashboard.admin.settings.index' ? 'active' : '' }}">{{ __('App Settings') }}</a>
+                @endif
+                @if ($can('admin.database.manage'))
+                    <a href="{{ $withLang('dashboard.admin.database.index') }}" class="nav-link {{ $currentRoute === 'dashboard.admin.database.index' ? 'active' : '' }}">{{ __('Database Tools') }}</a>
                 @endif
             </nav>
             <button type="button" class="sidebar-footer" data-modal-open="profile-modal">
@@ -399,17 +477,22 @@
 
         <main class="main">
             <div class="top">
-                <h1>@yield('page_title', 'Dashboard')</h1>
+                <div>
+                <h1>@yield('page_title', __('Dashboard Overview'))</h1>
+                    @hasSection('page_subtitle')
+                        <p class="top-subtitle">@yield('page_subtitle')</p>
+                    @endif
+                </div>
                 <div class="top-right">
-                    <label for="lang-select" style="display:none;">Language</label>
+                    <label for="lang-select" style="display:none;">{{ __('Language') }}</label>
                     <select id="lang-select" class="language-select" aria-label="Language">
                         <option value="en" @selected(app()->getLocale() === 'en')>English</option>
                         <option value="id" @selected(app()->getLocale() === 'id')>Bahasa Indonesia</option>
-                        <option value="zh" @selected(app()->getLocale() === 'zh')>Chinese</option>
+                        <option value="zh" @selected(app()->getLocale() === 'zh')>中文</option>
                     </select>
                     <form method="POST" action="{{ route('logout', ['lang' => app()->getLocale()]) }}">
                         @csrf
-                        <button type="submit" class="btn">Log out</button>
+                        <button type="submit" class="btn">{{ __('Log out') }}</button>
                     </form>
                 </div>
             </div>
