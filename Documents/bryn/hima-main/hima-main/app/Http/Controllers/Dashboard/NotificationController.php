@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\UserNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
 
 class NotificationController extends Controller
@@ -103,5 +104,45 @@ class NotificationController extends Controller
             ->update(['read_at' => now()]);
 
         return back()->with('success', 'All notifications marked as read.');
+    }
+
+    public function poll(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user, 401);
+
+        $afterId = max(0, (int) $request->query('after_id', 0));
+
+        $newNotifications = UserNotification::query()
+            ->where('user_id', $user->id)
+            ->whereNull('archived_at')
+            ->where('id', '>', $afterId)
+            ->latest('id')
+            ->take(5)
+            ->get()
+            ->reverse()
+            ->values()
+            ->map(static fn (UserNotification $notification): array => [
+                'id' => $notification->id,
+                'title' => $notification->title,
+                'body' => $notification->body,
+                'created_at' => $notification->created_at?->format('Y-m-d H:i:s'),
+            ]);
+
+        $unreadCount = UserNotification::query()
+            ->where('user_id', $user->id)
+            ->whereNull('archived_at')
+            ->whereNull('read_at')
+            ->count();
+
+        $latestId = UserNotification::query()
+            ->where('user_id', $user->id)
+            ->max('id') ?? 0;
+
+        return response()->json([
+            'unread_count' => $unreadCount,
+            'latest_id' => (int) $latestId,
+            'notifications' => $newNotifications,
+        ]);
     }
 }

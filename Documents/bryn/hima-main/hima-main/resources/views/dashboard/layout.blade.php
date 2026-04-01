@@ -34,6 +34,20 @@
             grid-template-columns: 260px 1fr;
         }
 
+        .page-dim {
+            position: fixed;
+            inset: 0;
+            background: rgba(12, 8, 0, .48);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 70;
+            transition: opacity .28s ease;
+        }
+
+        body.modal-open .page-dim {
+            opacity: 1;
+        }
+
         .sidebar {
             border-right: 1px solid var(--line);
             background: linear-gradient(180deg, #fff1ab 0%, #ffe996 100%);
@@ -171,6 +185,40 @@
         .main {
             padding: 1rem 1.25rem 1.25rem;
         }
+
+        .page-reveal {
+            opacity: 0;
+            transform: translateY(22px);
+            animation: rise-in .65s cubic-bezier(.2, .8, .2, 1) forwards;
+            animation-play-state: paused;
+        }
+
+        body.page-ready .page-reveal {
+            animation-play-state: running;
+        }
+
+        .page-reveal-delay-1 { animation-delay: .04s; }
+        .page-reveal-delay-2 { animation-delay: .09s; }
+        .page-reveal-delay-3 { animation-delay: .14s; }
+        .page-reveal-delay-4 { animation-delay: .19s; }
+        .page-reveal-delay-5 { animation-delay: .24s; }
+
+        .page-animate > *:not(.modal) {
+            opacity: 0;
+            transform: translateY(22px);
+            animation: rise-in .65s cubic-bezier(.2, .8, .2, 1) forwards;
+            animation-play-state: paused;
+        }
+
+        body.page-ready .page-animate > *:not(.modal) {
+            animation-play-state: running;
+        }
+
+        .page-animate > *:not(.modal):nth-child(1) { animation-delay: .12s; }
+        .page-animate > *:not(.modal):nth-child(2) { animation-delay: .18s; }
+        .page-animate > *:not(.modal):nth-child(3) { animation-delay: .24s; }
+        .page-animate > *:not(.modal):nth-child(4) { animation-delay: .3s; }
+        .page-animate > *:not(.modal):nth-child(5) { animation-delay: .36s; }
 
         .top {
             display: flex;
@@ -315,7 +363,7 @@
             display: none;
             align-items: center;
             justify-content: center;
-            z-index: 60;
+            z-index: 90;
             padding: 1rem;
         }
 
@@ -324,14 +372,14 @@
         .modal-backdrop {
             position: absolute;
             inset: 0;
-            background: rgba(20, 14, 0, .65);
+            background: transparent;
             opacity: 0;
-            transition: opacity .2s ease;
+            transition: opacity .28s ease;
         }
 
         .modal-card {
             position: relative;
-            z-index: 1;
+            z-index: 2;
             width: min(760px, 100%);
             max-height: 92vh;
             overflow: auto;
@@ -341,8 +389,8 @@
             padding: 1rem;
             box-shadow: 0 14px 35px rgba(0, 0, 0, .2);
             opacity: 0;
-            transform: translateY(16px);
-            transition: opacity .2s ease, transform .2s ease;
+            transform: translateY(26px) scale(.985);
+            transition: opacity .28s ease, transform .32s cubic-bezier(.2, .8, .2, 1);
         }
 
         .modal.active .modal-backdrop {
@@ -351,7 +399,7 @@
 
         .modal.active .modal-card {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateY(0) scale(1);
         }
 
         .modal-head {
@@ -367,6 +415,60 @@
             font-size: 1.1rem;
         }
 
+        .toast-stack {
+            position: fixed;
+            right: 1rem;
+            bottom: 1rem;
+            z-index: 120;
+            display: flex;
+            flex-direction: column;
+            gap: .7rem;
+            width: min(360px, calc(100vw - 2rem));
+            pointer-events: none;
+        }
+
+        .toast {
+            pointer-events: auto;
+            background: #fff7d1;
+            border: 1px solid var(--line);
+            border-left: 5px solid var(--accent);
+            border-radius: 14px;
+            box-shadow: 0 12px 28px rgba(42, 33, 0, .18);
+            padding: .9rem 1rem;
+            opacity: 0;
+            transform: translateY(14px);
+            transition: opacity .25s ease, transform .25s ease;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast-title {
+            margin: 0;
+            font-size: .95rem;
+            font-weight: 800;
+        }
+
+        .toast-body {
+            margin: .3rem 0 0;
+            color: var(--muted);
+            font-size: .88rem;
+            line-height: 1.45;
+        }
+
+        @keyframes rise-in {
+            from {
+                opacity: 0;
+                transform: translateY(22px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         @media (max-width: 920px) {
             .app { grid-template-columns: 1fr; }
             .sidebar {
@@ -375,6 +477,11 @@
                 border-right: none;
                 border-bottom: 1px solid var(--line);
             }
+
+            .modal {
+                align-items: center;
+            }
+
             .kpi { grid-column: span 12; }
         }
     </style>
@@ -451,7 +558,7 @@
                         <span class="nav-link-row">
                             <span>{{ __('Notifications') }}</span>
                             @if ($unreadNotifications > 0)
-                                <span class="nav-badge">{{ $unreadNotifications > 99 ? '!' : $unreadNotifications }}</span>
+                                <span class="nav-badge" id="notification-badge">{{ $unreadNotifications > 99 ? '!' : $unreadNotifications }}</span>
                             @endif
                         </span>
                     </a>
@@ -488,7 +595,7 @@
         </aside>
 
         <main class="main">
-            <div class="top">
+            <div class="top page-reveal page-reveal-delay-1">
                 <div>
                 <h1>@yield('page_title', __('Dashboard Overview'))</h1>
                     @hasSection('page_subtitle')
@@ -510,17 +617,21 @@
             </div>
 
             @if (session('success'))
-                <div class="alert alert-success">{{ session('success') }}</div>
+                <div class="alert alert-success page-reveal page-reveal-delay-2">{{ session('success') }}</div>
             @endif
 
             @if ($errors->any())
-                <div class="alert alert-error">Please check the form fields and try again.</div>
+                <div class="alert alert-error page-reveal page-reveal-delay-2">Please check the form fields and try again.</div>
             @endif
 
-            @yield('content')
+            <div class="page-animate">
+                @yield('content')
+            </div>
         </main>
     </div>
 
+    <div class="page-dim" aria-hidden="true"></div>
+    <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="true"></div>
     <div class="modal" id="profile-modal">
         <div class="modal-backdrop" data-modal-close></div>
         <div class="modal-card">
@@ -607,6 +718,10 @@
 
     <script>
         (function () {
+            document.body.classList.add('page-ready');
+        })();
+
+        (function () {
             const select = document.getElementById('lang-select');
             if (!select) return;
 
@@ -622,6 +737,9 @@
 
             function closeModal(modal) {
                 modal.classList.remove('active');
+                if (!document.querySelector('.modal.active')) {
+                    body.classList.remove('modal-open');
+                }
                 body.style.overflow = '';
             }
 
@@ -632,6 +750,7 @@
                     const modal = document.getElementById(modalId);
                     if (modal) {
                         modal.classList.add('active');
+                        body.classList.add('modal-open');
                         body.style.overflow = 'hidden';
                     }
                     return;
@@ -755,6 +874,103 @@
                     updateCrop();
                 });
             }
+        })();
+
+        (function () {
+            const notificationUrl = @json($sidebarUser ? route('dashboard.notifications.poll', ['lang' => app()->getLocale()]) : null);
+            const badge = document.getElementById('notification-badge');
+            const toastStack = document.getElementById('toast-stack');
+            if (!notificationUrl || !toastStack) return;
+
+            let latestId = @json((int) (\App\Models\UserNotification::query()->where('user_id', $sidebarUser?->id)->max('id') ?? 0));
+            let polling = false;
+
+            function ensureBadge() {
+                if (badge) return badge;
+                const navRow = document.querySelector('.nav-link[href*="/dashboard/notifications"] .nav-link-row');
+                if (!navRow) return null;
+
+                const createdBadge = document.createElement('span');
+                createdBadge.id = 'notification-badge';
+                createdBadge.className = 'nav-badge';
+                navRow.appendChild(createdBadge);
+                return createdBadge;
+            }
+
+            function updateBadge(count) {
+                const activeBadge = ensureBadge();
+                if (!activeBadge) return;
+
+                if (!count || count < 1) {
+                    activeBadge.remove();
+                    return;
+                }
+
+                activeBadge.textContent = count > 99 ? '!' : String(count);
+            }
+
+            function showToast(notification) {
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.innerHTML = `
+                    <p class="toast-title">New Notification</p>
+                    <p class="toast-body"><strong>${escapeHtml(notification.title || '')}</strong>${notification.body ? `<br>${escapeHtml(notification.body)}` : ''}</p>
+                `;
+
+                toastStack.appendChild(toast);
+                requestAnimationFrame(() => toast.classList.add('show'));
+
+                window.setTimeout(() => {
+                    toast.classList.remove('show');
+                    window.setTimeout(() => toast.remove(), 250);
+                }, 5200);
+            }
+
+            function escapeHtml(value) {
+                return String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            async function pollNotifications() {
+                if (polling) return;
+                polling = true;
+
+                try {
+                    const url = new URL(notificationUrl, window.location.origin);
+                    url.searchParams.set('after_id', String(latestId));
+
+                    const response = await fetch(url.toString(), {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json',
+                        },
+                        credentials: 'same-origin',
+                    });
+
+                    if (!response.ok) return;
+
+                    const payload = await response.json();
+                    updateBadge(payload.unread_count || 0);
+
+                    if (Array.isArray(payload.notifications) && payload.notifications.length) {
+                        payload.notifications.forEach(showToast);
+                    }
+
+                    if (typeof payload.latest_id === 'number' && payload.latest_id > latestId) {
+                        latestId = payload.latest_id;
+                    }
+                } catch (error) {
+                    console.error('Notification polling failed.', error);
+                } finally {
+                    polling = false;
+                }
+            }
+
+            window.setInterval(pollNotifications, 10000);
         })();
     </script>
 </body>

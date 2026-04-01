@@ -125,6 +125,7 @@ Route::middleware(['auth', 'apply.locale'])->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/notifications', [NotificationController::class, 'index'])->name('dashboard.notifications.index');
+    Route::get('/dashboard/notifications/poll', [NotificationController::class, 'poll'])->name('dashboard.notifications.poll');
     Route::post('/dashboard/notifications/read-all', [NotificationController::class, 'readAll'])->name('dashboard.notifications.read-all');
     Route::post('/dashboard/notifications/{notification}/read', [NotificationController::class, 'read'])->name('dashboard.notifications.read');
     Route::post('/dashboard/notifications/{notification}/archive', [NotificationController::class, 'archive'])->name('dashboard.notifications.archive');

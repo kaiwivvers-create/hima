@@ -13,6 +13,22 @@
         html, body { overflow-x: hidden; }
         body { margin: 0; font-family: "DM Sans", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; background: #fff4b5; color: var(--ink); padding-bottom: 72px; }
 
+        .page-reveal {
+            opacity: 0;
+            transform: translateY(22px);
+            animation: auth-rise .7s cubic-bezier(.2, .8, .2, 1) forwards;
+            animation-play-state: paused;
+        }
+
+        body.page-ready .page-reveal {
+            animation-play-state: running;
+        }
+
+        .delay-1 { animation-delay: .04s; }
+        .delay-2 { animation-delay: .1s; }
+        .delay-3 { animation-delay: .16s; }
+        .delay-4 { animation-delay: .22s; }
+
         .topbar { display: flex; justify-content: flex-end; align-items: center; width: 100%; position: absolute; top: 0; left: 0; z-index: 6; padding: 1rem 1.25rem 0; }
         .actions { display: flex; align-items: center; margin-left: auto; gap: 0.6rem; }
         .top-link { padding: 0.55rem 1.05rem; border-radius: 8px; border: 1px solid rgba(42,33,0,.2); text-decoration: none; font-weight: 700; font-size: .9rem; background: rgba(255,255,255,.86); color: var(--ink); display: inline-flex; align-items: center; gap: .4rem; }
@@ -49,10 +65,21 @@
             .hero-content { padding-top: 4.2rem; }
             .card { padding: 1.1rem .95rem; }
         }
+
+        @keyframes auth-rise {
+            from {
+                opacity: 0;
+                transform: translateY(22px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
     </style>
 </head>
 <body>
-    <header class="topbar">
+    <header class="topbar page-reveal delay-1">
         <div class="actions">
             <label for="lang-select" style="display:none;">{{ __('auth.lang_label') }}</label>
             <select id="lang-select" class="language-select" aria-label="{{ __('auth.lang_label') }}">
@@ -71,7 +98,7 @@
         </div>
     </header>
 
-    <section class="hero">
+    <section class="hero page-reveal delay-2">
         <div class="hero-content">
             <h1>{{ __('auth.register_hero_title') }}</h1>
             <p>{{ __('auth.register_hero_text') }}</p>
@@ -80,7 +107,7 @@
 
     <div class="container">
         <section class="auth-wrap">
-            <form method="POST" action="{{ route('register.post') }}" class="card">
+            <form method="POST" action="{{ route('register.post') }}" class="card page-reveal delay-3">
                 @csrf
                 <h2>{{ __('auth.register_title') }}</h2>
 
@@ -123,7 +150,7 @@
         </section>
     </div>
 
-    <section class="contact-bar">
+    <section class="contact-bar page-reveal delay-4">
         <div class="contact-inner">
             <div class="contact-list">
                 <div class="contact-item">
@@ -148,6 +175,10 @@
         </div>
     </section>
     <script>
+        (function () {
+            document.body.classList.add('page-ready');
+        })();
+
         (function () {
             const select = document.getElementById('lang-select');
             if (!select) return;

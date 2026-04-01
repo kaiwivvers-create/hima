@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +60,14 @@ class ParentConnectionController extends Controller
             null
         );
 
+        NotificationService::notifyUser(
+            $student,
+            'New connection request',
+            $user->name.' requested to connect as your parent account.',
+            'parent_connection.requested',
+            ['student_id' => $student->id, 'parent_user_id' => $user->id]
+        );
+
         return back()->with('success', 'Connection request sent.');
     }
 
@@ -103,6 +112,15 @@ class ParentConnectionController extends Controller
             null
         );
 
+        $parent = User::find($connectionRequest->parent_user_id);
+        NotificationService::notifyUser(
+            $connectionRequest->parent_user_id,
+            'Connection accepted',
+            ($parent ? $user->name.' accepted your connection request.' : 'Your connection request was accepted.'),
+            'parent_connection.accepted',
+            ['student_id' => $user->id, 'parent_user_id' => $connectionRequest->parent_user_id]
+        );
+
         return back()->with('success', 'Connection accepted.');
     }
 
@@ -124,6 +142,14 @@ class ParentConnectionController extends Controller
                 'status' => 'rejected',
                 'updated_at' => now(),
             ]);
+
+        NotificationService::notifyUser(
+            $connectionRequest->parent_user_id,
+            'Connection rejected',
+            $user->name.' rejected your connection request.',
+            'parent_connection.rejected',
+            ['student_id' => $user->id, 'parent_user_id' => $connectionRequest->parent_user_id]
+        );
 
         return back()->with('success', 'Connection rejected.');
     }

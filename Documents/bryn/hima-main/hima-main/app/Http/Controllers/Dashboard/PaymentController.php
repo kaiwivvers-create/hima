@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\NotificationService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -133,6 +135,7 @@ class PaymentController extends Controller
         $validated['paid_amount'] = $validated['paid_amount'] ?? 0;
 
         $payment = Payment::create($validated);
+        $payment->load('student');
 
         ActivityLogger::log(
             'payment.created',
@@ -141,6 +144,15 @@ class PaymentController extends Controller
             'Payment created.',
             null,
             ActivityLogger::snapshot($payment, 'payment')
+        );
+
+        $studentName = $payment->student?->name ?? 'the student';
+        NotificationService::notifyStudentAndParents(
+            $payment->student_id,
+            'New payment added',
+            'Invoice '.$payment->invoice_no.' for '.$studentName.' has been added with status '.ucfirst($payment->status).'.',
+            'payment.created',
+            ['payment_id' => $payment->id, 'student_id' => $payment->student_id]
         );
 
         return redirect()->route('dashboard.payments.index', ['lang' => app()->getLocale()])
@@ -201,9 +213,12 @@ class PaymentController extends Controller
         }
 
         $validated['paid_amount'] = $validated['paid_amount'] ?? 0;
+        $previousStatus = $payment->status;
+        $previousPaidAmount = (float) $payment->paid_amount;
 
         $before = ActivityLogger::snapshot($payment, 'payment');
         $payment->update($validated);
+        $payment->load('student');
 
         ActivityLogger::log(
             'payment.updated',
@@ -213,6 +228,19 @@ class PaymentController extends Controller
             $before,
             ActivityLogger::snapshot($payment, 'payment')
         );
+
+        $statusChanged = $previousStatus !== $payment->status;
+        $amountChanged = $previousPaidAmount !== (float) $payment->paid_amount;
+        if ($statusChanged || $amountChanged) {
+            $studentName = $payment->student?->name ?? 'the student';
+            NotificationService::notifyStudentAndParents(
+                $payment->student_id,
+                'Payment updated',
+                'Invoice '.$payment->invoice_no.' for '.$studentName.' is now marked as '.ucfirst($payment->status).'.',
+                'payment.updated',
+                ['payment_id' => $payment->id, 'student_id' => $payment->student_id]
+            );
+        }
 
         return redirect()->route('dashboard.payments.index', ['lang' => app()->getLocale()])
             ->with('success', 'Payment record updated successfully.');
@@ -255,6 +283,7 @@ class PaymentController extends Controller
         $payment->paid_at = now();
         $payment->status = 'paid';
         $payment->save();
+        $payment->load('student');
 
         ActivityLogger::log(
             'payment.paid',
@@ -265,15 +294,33 @@ class PaymentController extends Controller
             ActivityLogger::snapshot($payment, 'payment')
         );
 
+        $studentName = $payment->student?->name ?? 'the student';
+        NotificationService::notifyAdmins(
+            'Payment received',
+            $user->name.' paid invoice '.$payment->invoice_no.' for '.$studentName.'.',
+            'payment.paid',
+            ['payment_id' => $payment->id, 'student_id' => $payment->student_id, 'paid_by_user_id' => $user->id]
+        );
+        NotificationService::notifyStudentAndParents(
+            $payment->student_id,
+            'Payment completed',
+            'Invoice '.$payment->invoice_no.' for '.$studentName.' has been marked as paid.',
+            'payment.paid',
+            ['payment_id' => $payment->id, 'student_id' => $payment->student_id],
+            true,
+            true,
+            [$user->id]
+        );
+
         return redirect()->route('dashboard.payments.index', [
             'lang' => app()->getLocale(),
             'receipt' => $payment->id,
         ])->with('success', 'Payment completed.');
     }
 
-    public function receipt(Payment $payment): View
+    public function receipt(Request $request, Payment $payment)
     {
-        $user = request()->user();
+        $user = $request->user();
         if (!$user) {
             abort(401);
         }
@@ -290,9 +337,19 @@ class PaymentController extends Controller
             abort(403);
         }
 
-        return view('dashboard.payments.receipt', [
-            'payment' => $payment->load('student'),
-        ]);
+        $payment->load('student');
+
+        if ($request->query('action') === 'pdf') {
+            $pdf = Pdf::loadView('dashboard.payments.receipt-pdf', [
+                'payment' => $payment,
+                'appName' => $this->resolveAppName(),
+                'appLogoUrl' => $this->resolveAppLogoUrl(),
+            ])->setPaper('a4');
+
+            return $pdf->download('receipt-'.$payment->invoice_no.'.pdf');
+        }
+
+        return view('dashboard.payments.receipt', ['payment' => $payment]);
     }
 
     public function generatePlan(Request $request): RedirectResponse
@@ -362,6 +419,16 @@ class PaymentController extends Controller
             $created++;
         }
 
+        if ($created > 0) {
+            NotificationService::notifyStudentAndParents(
+                $student->id,
+                'Payment plan generated',
+                $created.' tuition payment(s) were generated for '.$student->name.'.',
+                'payment.plan.generated',
+                ['student_id' => $student->id, 'plan' => $plan]
+            );
+        }
+
         $firstPayment = Payment::where('student_id', $student->id)
             ->where('invoice_no', 'like', 'TUITION-'.$student->id.'-'.$year.'-%')
             ->where('status', '!=', 'paid')
@@ -374,6 +441,23 @@ class PaymentController extends Controller
             $firstPayment->status = 'paid';
             $firstPayment->save();
 
+            NotificationService::notifyAdmins(
+                'Payment received',
+                $user->name.' paid invoice '.$firstPayment->invoice_no.' for '.$student->name.'.',
+                'payment.paid',
+                ['payment_id' => $firstPayment->id, 'student_id' => $student->id, 'paid_by_user_id' => $user->id]
+            );
+            NotificationService::notifyStudentAndParents(
+                $student->id,
+                'Payment completed',
+                'Invoice '.$firstPayment->invoice_no.' for '.$student->name.' has been marked as paid.',
+                'payment.paid',
+                ['payment_id' => $firstPayment->id, 'student_id' => $student->id],
+                true,
+                true,
+                [$user->id]
+            );
+
             return redirect()->route('dashboard.payments.index', [
                 'lang' => app()->getLocale(),
                 'receipt' => $firstPayment->id,
@@ -381,5 +465,21 @@ class PaymentController extends Controller
         }
 
         return back()->with('success', $created.' payment(s) generated.');
+    }
+
+    private function resolveAppName(): string
+    {
+        return DB::table('app_settings')
+            ->where('key', 'app_name')
+            ->value('value') ?? 'Student Portal';
+    }
+
+    private function resolveAppLogoUrl(): ?string
+    {
+        $path = DB::table('app_settings')
+            ->where('key', 'app_logo_path')
+            ->value('value');
+
+        return $path ? asset('storage/'.$path) : null;
     }
 }

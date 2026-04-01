@@ -4,12 +4,76 @@
 @section('page_title', 'Payments')
 
 @section('content')
+<style>
+    .payment-card-reveal {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    .payment-card-reveal.is-visible {
+        animation: payment-card-rise .55s cubic-bezier(.2, .8, .2, 1) forwards;
+    }
+
+    @keyframes payment-card-rise {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .payment-details summary {
+        list-style: none;
+    }
+
+    .payment-details summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .payment-details {
+        position: relative;
+        z-index: 1;
+    }
+
+    .payment-details[open] {
+        z-index: 8;
+    }
+
+    .payment-details-body {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        transition: max-height .35s ease, opacity .22s ease, margin-top .3s ease;
+        margin-top: 0;
+    }
+
+    .payment-details-body-inner {
+        padding-top: .1rem;
+    }
+
+    .payment-details[open] .payment-details-body {
+        max-height: 1200px;
+        opacity: 1;
+        margin-top: .6rem;
+    }
+
+    .payment-details[open] .payment-details-body-inner {
+        position: relative;
+        z-index: 9;
+    }
+</style>
+
 @if (request()->query('receipt'))
     <section class="card" style="margin-bottom:.8rem;">
         <h2 style="margin:.1rem 0 .4rem;font-size:1.05rem;">Receipt Ready</h2>
-        <p class="muted" style="margin:.2rem 0 .6rem;">Your payment was recorded. You can view or download the receipt.</p>
+        <p class="muted" style="margin:.2rem 0 .6rem;">Your payment was recorded. Open the receipt page to print it or save it as a PDF.</p>
         <div class="actions">
             <a class="btn" href="{{ route('dashboard.payments.receipt', ['payment' => request()->query('receipt'), 'lang' => app()->getLocale()]) }}">View Receipt</a>
+            <a class="btn-outline" target="_blank" href="{{ route('dashboard.payments.receipt', ['payment' => request()->query('receipt'), 'lang' => app()->getLocale(), 'action' => 'print']) }}">Print Receipt</a>
+            <a class="btn-outline" target="_blank" href="{{ route('dashboard.payments.receipt', ['payment' => request()->query('receipt'), 'lang' => app()->getLocale(), 'action' => 'pdf']) }}">Save PDF</a>
         </div>
     </section>
 @endif
@@ -75,7 +139,7 @@
         </div>
         <div style="display:flex; flex-direction:column; gap:.7rem;">
             @forelse ($studentCards as $card)
-                <div class="card" data-student-card data-name="{{ strtolower($card['student']->name) }} {{ strtolower($card['student']->email) }}" data-status="{{ $card['status'] }}" style="margin:0; border:1px solid var(--line); padding:.85rem 1rem;">
+                <div class="card payment-card-reveal" data-student-card data-name="{{ strtolower($card['student']->name) }} {{ strtolower($card['student']->email) }}" data-status="{{ $card['status'] }}" style="margin:0; border:1px solid var(--line); padding:.85rem 1rem;">
                     <div style="display:flex; flex-wrap:wrap; gap:.8rem; align-items:center;">
                         <div style="min-width:220px; flex:1 1 320px;">
                             <p style="margin:0;font-weight:700;">{{ $card['student']->name }}</p>
@@ -106,9 +170,10 @@
                             <p class="muted" style="margin:.1rem 0 0;font-size:.85rem;">paid</p>
                         </div>
                     </div>
-                    <details style="margin-top:.7rem;">
+                    <details class="payment-details" style="margin-top:.7rem;">
                         <summary class="btn-outline" style="display:inline-flex; cursor:pointer;">View payments ({{ $card['payments']->count() }})</summary>
-                        <div style="margin-top:.6rem; display:flex; flex-direction:column; gap:.4rem;">
+                        <div class="payment-details-body">
+                            <div class="payment-details-body-inner" style="display:flex; flex-direction:column; gap:.4rem;">
                             @forelse ($card['payments'] as $payment)
                                 <div style="border:1px solid var(--line); border-radius:10px; padding:.6rem;">
                                     <div style="display:flex; justify-content:space-between; gap:.6rem; flex-wrap:wrap;">
@@ -136,6 +201,7 @@
                             @empty
                                 <p class="muted" style="margin:0;">No payments yet.</p>
                             @endforelse
+                            </div>
                         </div>
                     </details>
                 </div>
@@ -149,6 +215,12 @@
             const search = document.getElementById('student-search');
             const status = document.getElementById('student-status');
             const cards = Array.from(document.querySelectorAll('[data-student-card]'));
+
+            cards.forEach((card, index) => {
+                window.setTimeout(() => {
+                    card.classList.add('is-visible');
+                }, 70 * index);
+            });
 
             function applyFilters() {
                 const q = (search?.value || '').trim().toLowerCase();
@@ -396,7 +468,9 @@
                     </div>
                 </div>
                 <div class="actions" style="margin-top:.8rem;">
-                    <button class="btn" type="button" onclick="window.print()">Download</button>
+                    <a class="btn" target="_blank" href="{{ route('dashboard.payments.receipt', ['payment' => $payment, 'lang' => app()->getLocale(), 'action' => 'print']) }}">Print</a>
+                    <a class="btn-outline" target="_blank" href="{{ route('dashboard.payments.receipt', ['payment' => $payment, 'lang' => app()->getLocale(), 'action' => 'pdf']) }}">Save PDF</a>
+                    <a class="btn-outline" target="_blank" href="{{ route('dashboard.payments.receipt', ['payment' => $payment, 'lang' => app()->getLocale()]) }}">Open Receipt</a>
                     <button class="btn-outline" type="button" data-modal-close>Close</button>
                 </div>
             </div>
