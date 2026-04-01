@@ -1,0 +1,25 @@
+<?php
+
+return [
+    'user_activity_title' => 'User Activity',
+    'user_activity_nav' => 'User Activity',
+    'when' => 'When',
+    'actor' => 'Actor',
+    'action' => 'Action',
+    'description' => 'Description',
+    'view' => 'View',
+    'system' => 'System',
+    'no_activity' => 'No activity yet.',
+    'activity_detail' => 'Activity Detail',
+    'close' => 'Close',
+    'subject' => 'Subject',
+    'deleted' => 'deleted',
+    'no_subject' => 'No subject found.',
+    'metadata' => 'Metadata',
+    'no_metadata' => 'No metadata.',
+    'revert' => 'Revert',
+    'permanently_delete' => 'Permanently Delete',
+    'version_history' => 'Version History',
+    'no_versions' => 'No versions yet.',
+    'revert_to' => 'Revert To',
+];
