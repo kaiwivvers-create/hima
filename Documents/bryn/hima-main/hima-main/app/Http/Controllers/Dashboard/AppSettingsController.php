@@ -70,12 +70,15 @@ class AppSettingsController extends Controller
         $validated = $request->validate([
             'app_name' => ['required', 'string', 'max:120'],
             'app_logo' => ['nullable', 'image', 'max:2048'],
+            'app_logo_cropped' => ['nullable', 'string'],
         ]);
 
         $before = $this->currentSettings();
 
         $newLogoPath = $before['app_logo_path'];
-        if ($request->hasFile('app_logo')) {
+        if (!empty($validated['app_logo_cropped'])) {
+            $newLogoPath = $this->storeDataUrlImage($validated['app_logo_cropped'], 'app_logo/logo');
+        } elseif ($request->hasFile('app_logo')) {
             $newLogoPath = $request->file('app_logo')->store('app_logo', 'public');
         }
 
@@ -88,7 +91,7 @@ class AppSettingsController extends Controller
         AppSetting::setValue('app_name', $validated['app_name']);
         AppSetting::setValue('app_logo_path', $newLogoPath);
 
-        if ($request->hasFile('app_logo') && $before['app_logo_path'] && Storage::disk('public')->exists($before['app_logo_path'])) {
+        if (($request->hasFile('app_logo') || !empty($validated['app_logo_cropped'])) && $before['app_logo_path'] && Storage::disk('public')->exists($before['app_logo_path'])) {
             Storage::disk('public')->delete($before['app_logo_path']);
         }
 
@@ -246,5 +249,34 @@ class AppSettingsController extends Controller
     private function textSettingStorageKey(string $key, string $locale): string
     {
         return $key.'.'.$locale;
+    }
+
+    private function storeDataUrlImage(string $dataUrl, string $prefix): ?string
+    {
+        if (!str_starts_with($dataUrl, 'data:image/')) {
+            return null;
+        }
+
+        [$meta, $content] = explode(',', $dataUrl, 2);
+        if (!$content) {
+            return null;
+        }
+
+        $extension = 'png';
+        if (str_contains($meta, 'image/jpeg')) {
+            $extension = 'jpg';
+        } elseif (str_contains($meta, 'image/webp')) {
+            $extension = 'webp';
+        }
+
+        $binary = base64_decode($content, true);
+        if ($binary === false) {
+            return null;
+        }
+
+        $path = $prefix.'-'.time().'.'.$extension;
+        Storage::disk('public')->put($path, $binary);
+
+        return $path;
     }
 }

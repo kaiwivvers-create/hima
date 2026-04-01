@@ -21,13 +21,13 @@
         <div class="card" style="margin:0 0 .8rem; background:#fff9df;">
             <p class="muted" style="margin:0 0 .45rem; font-weight:700;">Live Preview</p>
             <div style="display:flex; align-items:center; gap:.65rem;">
-                @if ($appLogoPath)
-                    <img src="{{ asset('storage/'.$appLogoPath) }}" alt="Current app logo" style="width:54px;height:54px;border-radius:12px;border:1px solid var(--line);object-fit:cover;">
-                @else
-                    <div style="width:54px;height:54px;border-radius:12px;border:1px solid var(--line);display:grid;place-items:center;font-weight:800;background:#fff3bf;">
+                <div id="branding-logo-preview" style="width:54px;height:54px;border-radius:12px;border:1px solid var(--line);overflow:hidden;display:grid;place-items:center;font-weight:800;background:#fff3bf;">
+                    @if ($appLogoPath)
+                        <img src="{{ asset('storage/'.$appLogoPath) }}" alt="Current app logo" style="width:100%;height:100%;object-fit:cover;">
+                    @else
                         {{ strtoupper(substr($appName, 0, 1)) }}
+                    @endif
                     </div>
-                @endif
                 <div>
                     <p style="margin:0;font-size:1.05rem;font-weight:800;">{{ $appName }}</p>
                     <p class="muted" style="margin:.1rem 0 0;">Sidebar and homepage title/logo.</p>
@@ -43,7 +43,8 @@
             </div>
             <div class="field" style="max-width:520px;">
                 <label for="app_logo">Logo (Square Recommended)</label>
-                <input id="app_logo" name="app_logo" type="file" accept="image/*">
+                <input id="app_logo" name="app_logo" type="file" accept="image/*" data-image-editor data-output="#app-logo-cropped" data-preview="#branding-logo-preview" data-title="Edit App Logo">
+                <input type="hidden" name="app_logo_cropped" id="app-logo-cropped">
                 <p class="muted" style="margin:.25rem 0 0; font-size:.86rem;">PNG/JPG up to 2MB.</p>
             </div>
             <div class="actions" style="margin-top:.8rem;">

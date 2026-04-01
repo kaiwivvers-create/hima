@@ -458,6 +458,82 @@
             line-height: 1.45;
         }
 
+        .image-editor-shell {
+            display: grid;
+            grid-template-columns: minmax(320px, 1fr) 260px;
+            gap: 1rem;
+        }
+
+        .image-editor-stage {
+            position: relative;
+            min-height: 360px;
+            border-radius: 16px;
+            border: 1px solid var(--line);
+            background:
+                linear-gradient(45deg, rgba(42,33,0,.06) 25%, transparent 25%, transparent 75%, rgba(42,33,0,.06) 75%),
+                linear-gradient(45deg, rgba(42,33,0,.06) 25%, transparent 25%, transparent 75%, rgba(42,33,0,.06) 75%);
+            background-position: 0 0, 12px 12px;
+            background-size: 24px 24px;
+            overflow: hidden;
+            cursor: grab;
+            touch-action: none;
+        }
+
+        .image-editor-stage.dragging {
+            cursor: grabbing;
+        }
+
+        .image-editor-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .image-editor-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: .8rem;
+        }
+
+        .image-editor-box {
+            padding: .8rem;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: rgba(255,255,255,.35);
+        }
+
+        .image-editor-box h3 {
+            margin: 0 0 .6rem;
+            font-size: .96rem;
+        }
+
+        .image-editor-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .45rem;
+        }
+
+        .image-editor-controls .btn-outline,
+        .image-editor-controls .btn {
+            padding: .45rem .7rem;
+        }
+
+        .image-editor-preview {
+            width: 120px;
+            height: 120px;
+            border-radius: 20px;
+            border: 1px solid var(--line);
+            background: #fff7d1;
+            overflow: hidden;
+            margin: 0 auto;
+        }
+
+        .image-editor-preview canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
         @keyframes rise-in {
             from {
                 opacity: 0;
@@ -480,6 +556,10 @@
 
             .modal {
                 align-items: center;
+            }
+
+            .image-editor-shell {
+                grid-template-columns: 1fr;
             }
 
             .kpi { grid-column: span 12; }
@@ -656,7 +736,7 @@
                         <div class="field">
                             <label>Profile Photo</label>
                             <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;">
-                                <div style="width:96px;height:96px;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#fff7d1;display:flex;align-items:center;justify-content:center;">
+                                <div id="profile-modal-avatar-preview" style="width:96px;height:96px;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#fff7d1;display:flex;align-items:center;justify-content:center;">
                                     @if ($sidebarAvatar)
                                         <img src="{{ $sidebarAvatar }}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;">
                                     @else
@@ -664,22 +744,9 @@
                                     @endif
                                 </div>
                                 <div>
-                                    <input id="avatar-input" type="file" accept="image/*">
-                                    <input type="hidden" name="avatar_cropped" id="avatar-cropped">
-                                    <p class="muted" style="margin:.3rem 0 0;">Upload a square photo. You can crop it below.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="cropper" class="card" style="display:none;margin-top:.6rem;">
-                            <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center;">
-                                <canvas id="crop-canvas" width="240" height="240" style="border:1px solid var(--line);border-radius:12px;background:#fff7d1;"></canvas>
-                                <div>
-                                    <label for="zoom" class="muted" style="display:block;margin-bottom:.3rem;">Zoom</label>
-                                    <input id="zoom" type="range" min="1" max="3" step="0.01" value="1">
-                                    <div class="actions" style="margin-top:.6rem;">
-                                        <button type="button" class="btn-outline" id="use-crop">Use Crop</button>
-                                    </div>
+                                    <input id="profile-modal-avatar-input" type="file" accept="image/*" data-image-editor data-output="#profile-modal-avatar-cropped" data-preview="#profile-modal-avatar-preview" data-title="Edit Profile Photo">
+                                    <input type="hidden" name="avatar_cropped" id="profile-modal-avatar-cropped">
+                                    <p class="muted" style="margin:.3rem 0 0;">Upload a photo, then zoom, rotate, flip, and crop it.</p>
                                 </div>
                             </div>
                         </div>
@@ -712,6 +779,52 @@
                         </div>
                     </form>
                 </section>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="image-editor-modal">
+        <div class="modal-backdrop" data-modal-close></div>
+        <div class="modal-card" style="width:min(980px, 100%);">
+            <div class="modal-head">
+                <h2 id="image-editor-title">Edit Image</h2>
+                <button class="btn-outline" type="button" data-modal-close>Close</button>
+            </div>
+            <div class="image-editor-shell">
+                <div class="image-editor-stage" id="image-editor-stage">
+                    <canvas class="image-editor-canvas" id="image-editor-canvas" width="720" height="720"></canvas>
+                </div>
+                <div class="image-editor-sidebar">
+                    <div class="image-editor-box">
+                        <h3>Preview</h3>
+                        <div class="image-editor-preview">
+                            <canvas id="image-editor-preview-canvas" width="240" height="240"></canvas>
+                        </div>
+                    </div>
+                    <div class="image-editor-box">
+                        <h3>Zoom</h3>
+                        <input id="image-editor-zoom" type="range" min="0.1" max="8" step="0.01" value="1">
+                    </div>
+                    <div class="image-editor-box">
+                        <h3>Rotate</h3>
+                        <input id="image-editor-rotate" type="range" min="-180" max="180" step="1" value="0">
+                        <div class="image-editor-controls" style="margin-top:.6rem;">
+                            <button type="button" class="btn-outline" id="image-editor-rotate-left">-90°</button>
+                            <button type="button" class="btn-outline" id="image-editor-rotate-right">+90°</button>
+                        </div>
+                    </div>
+                    <div class="image-editor-box">
+                        <h3>Flip</h3>
+                        <div class="image-editor-controls">
+                            <button type="button" class="btn-outline" id="image-editor-flip-x">Flip Horizontal</button>
+                            <button type="button" class="btn-outline" id="image-editor-flip-y">Flip Vertical</button>
+                            <button type="button" class="btn-outline" id="image-editor-reset">Reset</button>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="btn" id="image-editor-apply">Use Image</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -773,107 +886,233 @@
         })();
 
         (function () {
-            const input = document.getElementById('avatar-input');
-            const cropper = document.getElementById('cropper');
-            const canvas = document.getElementById('crop-canvas');
-            const zoom = document.getElementById('zoom');
-            const useCrop = document.getElementById('use-crop');
-            const output = document.getElementById('avatar-cropped');
+            const modal = document.getElementById('image-editor-modal');
+            const stage = document.getElementById('image-editor-stage');
+            const canvas = document.getElementById('image-editor-canvas');
+            const previewCanvas = document.getElementById('image-editor-preview-canvas');
+            const title = document.getElementById('image-editor-title');
+            const zoomInput = document.getElementById('image-editor-zoom');
+            const rotateInput = document.getElementById('image-editor-rotate');
+            const applyButton = document.getElementById('image-editor-apply');
+            const rotateLeft = document.getElementById('image-editor-rotate-left');
+            const rotateRight = document.getElementById('image-editor-rotate-right');
+            const flipXButton = document.getElementById('image-editor-flip-x');
+            const flipYButton = document.getElementById('image-editor-flip-y');
+            const resetButton = document.getElementById('image-editor-reset');
 
-            if (!input || !canvas) return;
+            if (!modal || !stage || !canvas || !previewCanvas) return;
 
             const ctx = canvas.getContext('2d');
-            let image = null;
-            let state = { x: 0, y: 0, scale: 1, dragging: false, lastX: 0, lastY: 0 };
+            const previewCtx = previewCanvas.getContext('2d');
+            const body = document.body;
+            const editors = Array.from(document.querySelectorAll('[data-image-editor]'));
+
+            const state = {
+                image: null,
+                output: null,
+                preview: null,
+                input: null,
+                title: 'Edit Image',
+                x: 0,
+                y: 0,
+                zoom: 1,
+                rotation: 0,
+                flipX: 1,
+                flipY: 1,
+                dragging: false,
+                lastX: 0,
+                lastY: 0,
+            };
+
+            function closeEditor() {
+                modal.classList.remove('active');
+                stage.classList.remove('dragging');
+                state.dragging = false;
+                if (!document.querySelector('.modal.active')) {
+                    body.classList.remove('modal-open');
+                    body.style.overflow = '';
+                }
+            }
+
+            function openEditor(config) {
+                state.output = document.querySelector(config.output);
+                state.preview = config.preview ? document.querySelector(config.preview) : null;
+                state.input = config.input;
+                state.title = config.title || 'Edit Image';
+                title.textContent = state.title;
+                modal.classList.add('active');
+                body.classList.add('modal-open');
+                body.style.overflow = 'hidden';
+            }
+
+            function fitImage() {
+                if (!state.image) return;
+                state.zoom = 1;
+                state.rotation = 0;
+                state.flipX = 1;
+                state.flipY = 1;
+                state.x = 0;
+                state.y = 0;
+                zoomInput.value = '1';
+                rotateInput.value = '0';
+                draw();
+            }
+
+            function getBaseScale() {
+                if (!state.image) return 1;
+                return Math.max(canvas.width / state.image.width, canvas.height / state.image.height);
+            }
+
+            function renderToContext(targetCtx, targetCanvas) {
+                if (!state.image) return;
+
+                const baseScale = Math.max(targetCanvas.width / state.image.width, targetCanvas.height / state.image.height);
+                const scale = baseScale * state.zoom;
+                const offsetScaleX = targetCanvas.width / canvas.width;
+                const offsetScaleY = targetCanvas.height / canvas.height;
+                const centerX = targetCanvas.width / 2 + (state.x * offsetScaleX);
+                const centerY = targetCanvas.height / 2 + (state.y * offsetScaleY);
+
+                targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+                targetCtx.fillStyle = '#fff7d1';
+                targetCtx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+                targetCtx.save();
+                targetCtx.translate(centerX, centerY);
+                targetCtx.rotate((state.rotation * Math.PI) / 180);
+                targetCtx.scale(state.flipX * scale, state.flipY * scale);
+                targetCtx.drawImage(state.image, -state.image.width / 2, -state.image.height / 2);
+                targetCtx.restore();
+            }
 
             function draw() {
-                if (!image) return;
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                const baseScale = Math.max(canvas.width / image.width, canvas.height / image.height);
-                const totalScale = baseScale * state.scale;
-                const drawW = image.width * totalScale;
-                const drawH = image.height * totalScale;
-                const dx = (canvas.width - drawW) / 2 + state.x;
-                const dy = (canvas.height - drawH) / 2 + state.y;
-
-                ctx.save();
-                ctx.fillStyle = '#fff7d1';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(image, dx, dy, drawW, drawH);
-                ctx.restore();
+                if (!state.image) return;
+                renderToContext(ctx, canvas);
+                renderToContext(previewCtx, previewCanvas);
             }
 
-            function clamp() {
-                if (!image) return;
-                const baseScale = Math.max(canvas.width / image.width, canvas.height / image.height);
-                const totalScale = baseScale * state.scale;
-                const drawW = image.width * totalScale;
-                const drawH = image.height * totalScale;
-
-                const minX = (canvas.width - drawW);
-                const minY = (canvas.height - drawH);
-                state.x = Math.min(Math.max(state.x, minX / 2), -minX / 2);
-                state.y = Math.min(Math.max(state.y, minY / 2), -minY / 2);
-            }
-
-            function updateCrop() {
-                output.value = canvas.toDataURL('image/png');
-            }
-
-            input.addEventListener('change', function () {
-                const file = this.files && this.files[0];
+            function loadFile(file, config) {
                 if (!file) return;
-
                 const reader = new FileReader();
-                reader.onload = function (e) {
-                    image = new Image();
+                reader.onload = function (event) {
+                    const image = new Image();
                     image.onload = function () {
-                        state = { x: 0, y: 0, scale: 1, dragging: false, lastX: 0, lastY: 0 };
-                        zoom.value = '1';
-                        cropper.style.display = 'block';
-                        draw();
-                        updateCrop();
+                        state.image = image;
+                        openEditor(config);
+                        fitImage();
                     };
-                    image.src = e.target.result;
+                    image.src = event.target.result;
                 };
                 reader.readAsDataURL(file);
+            }
+
+            editors.forEach((input) => {
+                input.addEventListener('change', function () {
+                    const file = this.files && this.files[0];
+                    if (!file) return;
+                    loadFile(file, {
+                        input: this,
+                        output: this.dataset.output,
+                        preview: this.dataset.preview,
+                        title: this.dataset.title,
+                    });
+                });
             });
 
-            zoom.addEventListener('input', function () {
-                state.scale = parseFloat(this.value);
-                clamp();
+            zoomInput.addEventListener('input', function () {
+                state.zoom = Math.max(0.1, parseFloat(this.value || '1'));
                 draw();
-                updateCrop();
             });
 
-            canvas.addEventListener('mousedown', function (e) {
+            rotateInput.addEventListener('input', function () {
+                state.rotation = parseFloat(this.value || '0');
+                draw();
+            });
+
+            rotateLeft.addEventListener('click', function () {
+                state.rotation -= 90;
+                rotateInput.value = String(state.rotation);
+                draw();
+            });
+
+            rotateRight.addEventListener('click', function () {
+                state.rotation += 90;
+                rotateInput.value = String(state.rotation);
+                draw();
+            });
+
+            flipXButton.addEventListener('click', function () {
+                state.flipX *= -1;
+                draw();
+            });
+
+            flipYButton.addEventListener('click', function () {
+                state.flipY *= -1;
+                draw();
+            });
+
+            resetButton.addEventListener('click', fitImage);
+
+            stage.addEventListener('mousedown', function (event) {
                 state.dragging = true;
-                state.lastX = e.offsetX;
-                state.lastY = e.offsetY;
+                state.lastX = event.clientX;
+                state.lastY = event.clientY;
+                stage.classList.add('dragging');
             });
 
             window.addEventListener('mouseup', function () {
                 state.dragging = false;
+                stage.classList.remove('dragging');
             });
 
-            canvas.addEventListener('mousemove', function (e) {
+            window.addEventListener('mousemove', function (event) {
                 if (!state.dragging) return;
-                const dx = e.offsetX - state.lastX;
-                const dy = e.offsetY - state.lastY;
-                state.x += dx;
-                state.y += dy;
-                state.lastX = e.offsetX;
-                state.lastY = e.offsetY;
-                clamp();
+                state.x += event.clientX - state.lastX;
+                state.y += event.clientY - state.lastY;
+                state.lastX = event.clientX;
+                state.lastY = event.clientY;
                 draw();
-                updateCrop();
             });
 
-            if (useCrop) {
-                useCrop.addEventListener('click', function () {
-                    updateCrop();
-                });
-            }
+            stage.addEventListener('wheel', function (event) {
+                event.preventDefault();
+                const nextZoom = state.zoom * (event.deltaY > 0 ? 0.96 : 1.04);
+                state.zoom = Math.min(12, Math.max(0.1, nextZoom));
+                zoomInput.value = String(state.zoom);
+                draw();
+            }, { passive: false });
+
+            applyButton.addEventListener('click', function () {
+                if (!state.output || !state.image) return;
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = 720;
+                exportCanvas.height = 720;
+                const exportCtx = exportCanvas.getContext('2d');
+                renderToContext(exportCtx, exportCanvas);
+                state.output.value = exportCanvas.toDataURL('image/png');
+
+                if (state.preview) {
+                    state.preview.innerHTML = '';
+                    const previewImage = document.createElement('img');
+                    previewImage.src = state.output.value;
+                    previewImage.alt = 'Edited image preview';
+                    previewImage.style.width = '100%';
+                    previewImage.style.height = '100%';
+                    previewImage.style.objectFit = 'cover';
+                    state.preview.appendChild(previewImage);
+                }
+
+                if (state.input) {
+                    state.input.value = '';
+                }
+
+                closeEditor();
+            });
+
+            modal.addEventListener('click', function (event) {
+                if (!event.target.closest('.modal-card') || event.target.hasAttribute('data-modal-close')) {
+                    closeEditor();
+                }
+            });
         })();
 
         (function () {
