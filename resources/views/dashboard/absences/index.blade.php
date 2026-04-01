@@ -42,10 +42,23 @@
                     <td>
                         <div class="actions">
                             @perm('absences.update')
-                                <button class="btn-outline" type="button" data-modal-open="absence-edit-{{ $absence->id }}">Edit</button>
+                                @if ($absence->verification_status === 'pending')
+                                    <form method="POST" action="{{ route('dashboard.absences.approve', ['absence' => $absence, 'lang' => app()->getLocale()]) }}">
+                                        @csrf
+                                        <button class="btn" type="submit">Approve</button>
+                                    </form>
+                                    <form method="POST" action="{{ route('dashboard.absences.reject', ['absence' => $absence, 'lang' => app()->getLocale()]) }}">
+                                        @csrf
+                                        <button class="btn btn-danger" type="submit">Reject</button>
+                                    </form>
+                                @else
+                                    <button class="btn-outline" type="button" data-modal-open="absence-edit-{{ $absence->id }}">Edit</button>
+                                @endif
                             @endperm
                             @perm('absences.delete')
+                                @if ($absence->verification_status !== 'pending')
                                 <button class="btn btn-danger" type="button" data-modal-open="absence-delete-{{ $absence->id }}">Delete</button>
+                                @endif
                             @endperm
                         </div>
                     </td>

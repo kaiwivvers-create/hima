@@ -21,7 +21,7 @@
     @endperm
 </div>
 
-@if (auth()->user()?->role === 'parent')
+@if ($isAdminView)
     <section class="card" style="margin-bottom:.8rem;">
         <h2 style="margin:.1rem 0 .4rem;font-size:1.05rem;">Generate Tuition Plan</h2>
         @if ($errors->has('plan'))
@@ -189,14 +189,26 @@
                         <td>{{ number_format((float) $payment->amount, 2) }}</td>
                         <td>{{ number_format((float) $payment->paid_amount, 2) }}</td>
                         <td>{{ $payment->due_date?->format('Y-m-d') }}</td>
-                        <td>{{ ucfirst($payment->status) }}</td>
+                        <td>
+                            @if (auth()->user()?->role === 'parent' && $payment->status !== 'paid')
+                                Unpaid
+                            @else
+                                {{ ucfirst($payment->status) }}
+                            @endif
+                        </td>
                         <td>
                             <div class="actions">
                                 @if ($payment->status === 'paid')
                                     <button class="btn-outline" type="button" data-modal-open="payment-receipt-{{ $payment->id }}">View</button>
                                 @endif
                                 @if (auth()->user()?->role === 'parent' && $payment->status !== 'paid')
-                                    <button class="btn" type="button" data-modal-open="payment-pay-{{ $payment->id }}">Pay</button>
+                                    <button class="btn" type="button" data-modal-open="payment-proof-{{ $payment->id }}">Submit Proof</button>
+                                    @php
+                                        $latestProof = $latestProofByPaymentId->get($payment->id);
+                                    @endphp
+                                    @if ($latestProof)
+                                        <span class="btn-outline" style="cursor:default;">Proof {{ ucfirst($latestProof->status) }}</span>
+                                    @endif
                                 @endif
                                 @if (auth()->user()?->role !== 'parent' && auth()->user()?->role !== 'student')
                                     @perm('payments.update')
@@ -278,27 +290,36 @@
 
     @foreach ($modalPayments as $payment)
         @if (auth()->user()?->role === 'parent' && $payment->status !== 'paid')
-            <div class="modal" id="payment-pay-{{ $payment->id }}">
+            <div class="modal" id="payment-proof-{{ $payment->id }}">
                 <div class="modal-backdrop" data-modal-close></div>
                 <div class="modal-card">
                     <div class="modal-head">
-                        <h2>Scan to Pay</h2>
+                        <h2>Submit Payment Proof</h2>
                         <button class="btn-outline" type="button" data-modal-close>Close</button>
                     </div>
-                    <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:center;">
-                        <div style="width:180px;height:180px;border-radius:12px;border:1px solid var(--line);background:repeating-linear-gradient(45deg,#fff7d1,#fff7d1 8px,#ffe9a8 8px,#ffe9a8 16px);display:flex;align-items:center;justify-content:center;font-weight:800;">
-                            QR
+                    <p style="margin:.2rem 0;"><strong>Invoice:</strong> {{ $payment->invoice_no }}</p>
+                    <p style="margin:.2rem 0 .8rem;"><strong>Amount:</strong> {{ number_format((float) $payment->amount, 2) }}</p>
+                    <form method="POST" action="{{ route('dashboard.payments.proofs.store', ['payment' => $payment, 'lang' => app()->getLocale()]) }}" enctype="multipart/form-data">
+                        @csrf
+                        <div class="field">
+                            <label for="proof-image-{{ $payment->id }}">Proof Image</label>
+                            <input id="proof-image-{{ $payment->id }}" name="proof_image" type="file" accept="image/*" required>
+                            <div style="margin-top:.45rem;">
+                                <img
+                                    id="proof-preview-{{ $payment->id }}"
+                                    alt="Proof Preview"
+                                    style="display:none;width:150px;height:150px;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:#fff7d1;"
+                                >
+                            </div>
                         </div>
-                        <div style="flex:1; min-width:220px;">
-                            <p style="margin:.2rem 0;"><strong>Invoice:</strong> {{ $payment->invoice_no }}</p>
-                            <p style="margin:.2rem 0;"><strong>Amount:</strong> {{ number_format((float) $payment->amount, 2) }}</p>
-                            <p class="muted" style="margin:.2rem 0;">This is a sandbox QR. Click “Paid” to simulate payment.</p>
-                            <form method="POST" action="{{ route('dashboard.payments.pay', ['payment' => $payment, 'lang' => app()->getLocale()]) }}">
-                                @csrf
-                                <button type="submit" class="btn">Paid</button>
-                            </form>
+                        <div class="field">
+                            <label for="proof-note-{{ $payment->id }}">Note (optional)</label>
+                            <textarea id="proof-note-{{ $payment->id }}" name="proof_note" rows="3" placeholder="Transfer reference, bank name, etc."></textarea>
                         </div>
-                    </div>
+                        <div class="actions">
+                            <button type="submit" class="btn">Send to Admin</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         @endif
@@ -425,4 +446,28 @@
     @endperm
     @endif
     @endforeach
+
+<script>
+    (function () {
+        const inputs = document.querySelectorAll('input[name="proof_image"]');
+        inputs.forEach(function (input) {
+            input.addEventListener('change', function () {
+                const file = input.files && input.files[0];
+                const previewId = input.id.replace('proof-image-', 'proof-preview-');
+                const preview = document.getElementById(previewId);
+                if (!preview) return;
+
+                if (!file) {
+                    preview.style.display = 'none';
+                    preview.removeAttribute('src');
+                    return;
+                }
+
+                const url = URL.createObjectURL(file);
+                preview.src = url;
+                preview.style.display = 'block';
+            });
+        });
+    })();
+</script>
 @endsection

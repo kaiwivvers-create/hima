@@ -36,7 +36,7 @@
             <label>Schedule Days</label>
             <div class="actions">
                 @foreach ($days as $day)
-                    <label><input type="checkbox" name="schedule_days[]" value="{{ $day }}" @checked(in_array($day, old('schedule_days', $student->schedule_days ?? []), true))> {{ $dayLabels[$day] ?? strtoupper($day) }}</label>
+                    <label><input type="checkbox" name="schedule_days[]" value="{{ $day }}" @checked(in_array($day, old('schedule_days', !empty($student->schedule_days) ? $student->schedule_days : $days), true))> {{ $dayLabels[$day] ?? strtoupper($day) }}</label>
                 @endforeach
             </div>
         </div>

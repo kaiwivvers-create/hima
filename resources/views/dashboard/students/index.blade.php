@@ -104,7 +104,7 @@
                 <label>Schedule Days</label>
                 <div class="actions">
                     @foreach ($days as $day)
-                        <label><input type="checkbox" name="schedule_days[]" value="{{ $day }}"> {{ $dayLabels[$day] ?? strtoupper($day) }}</label>
+                        <label><input type="checkbox" name="schedule_days[]" value="{{ $day }}" checked> {{ $dayLabels[$day] ?? strtoupper($day) }}</label>
                     @endforeach
                 </div>
             </div>
@@ -131,7 +131,7 @@
 
 @foreach ($students as $student)
     @php
-        $selectedDays = $student->schedule_days ?? [];
+        $selectedDays = !empty($student->schedule_days) ? $student->schedule_days : $days;
     @endphp
     @perm('students.update')
     <div class="modal" id="student-edit-{{ $student->id }}">

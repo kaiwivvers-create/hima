@@ -28,10 +28,10 @@
         <div class="field">
             <label for="status">Status</label>
             <select id="status" name="status" required>
-                <option value="present" @selected(old('status', $attendance->status) === 'present')>Present</option>
-                <option value="late" @selected(old('status', $attendance->status) === 'late')>Late</option>
-                <option value="absent" @selected(old('status', $attendance->status) === 'absent')>Absent</option>
-                <option value="excused" @selected(old('status', $attendance->status) === 'excused')>Excused</option>
+                <option value="present" @selected(old('status', $attendance->status) === 'present')>{{ __('Present') }}</option>
+                <option value="late" @selected(old('status', $attendance->status) === 'late')>{{ __('Late') }}</option>
+                <option value="absent" @selected(old('status', $attendance->status) === 'absent')>{{ __('Absent') }}</option>
+                <option value="excused" @selected(old('status', $attendance->status) === 'excused')>{{ __('Excused') }}</option>
             </select>
             @error('status')<div class="error">{{ $message }}</div>@enderror
         </div>

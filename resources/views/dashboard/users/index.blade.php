@@ -46,6 +46,10 @@
                         <div class="actions">
                             @perm('users.update')
                                 <button class="btn-outline" type="button" data-modal-open="user-edit-{{ $user->id }}">Edit</button>
+                                <form method="POST" action="{{ route('dashboard.users.reset-password', ['user' => $user, 'lang' => app()->getLocale()]) }}" onsubmit="return confirm('Reset password for this user?');">
+                                    @csrf
+                                    <button class="btn-outline" type="submit">Reset Password</button>
+                                </form>
                             @endperm
                             @perm('users.delete')
                                 <button class="btn btn-danger" type="button" data-modal-open="user-delete-{{ $user->id }}">Delete</button>

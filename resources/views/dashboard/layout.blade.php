@@ -75,6 +75,13 @@
             align-content: start;
         }
 
+        .sidebar-greeting {
+            margin: 0 0 .8rem;
+            font-size: .95rem;
+            font-weight: 700;
+            color: var(--muted);
+        }
+
         .sidebar-footer {
             margin: .4rem -0.6rem 0;
             padding: .9rem .6rem .6rem;
@@ -150,6 +157,10 @@
             border: 1px solid rgba(255,255,255,.55);
         }
 
+        .nav-badge[hidden] {
+            display: none !important;
+        }
+
         .nav-link:hover {
             border-color: var(--line);
             background: rgba(255,255,255,.55);
@@ -162,6 +173,20 @@
 
         .main {
             padding: 1rem 1.25rem 1.25rem;
+        }
+
+        .main-content > *:not(.grid),
+        .main-content .grid > * {
+            opacity: 0;
+            transform: translateY(16px);
+            animation: fade-up .45s ease forwards;
+        }
+
+        @keyframes fade-up {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .top {
@@ -374,6 +399,8 @@
 <body>
     @php
         $currentRoute = request()->route()?->getName() ?? '';
+        $isPaymentsProofsRoute = str_starts_with($currentRoute, 'dashboard.payments.proofs.');
+        $isPaymentsRoute = str_starts_with($currentRoute, 'dashboard.payments.') && !$isPaymentsProofsRoute;
         $lang = app()->getLocale();
         $withLang = static fn (string $routeName, array $params = []): string => route($routeName, array_merge($params, ['lang' => $lang]));
         $sidebarUser = auth()->user();
@@ -410,8 +437,9 @@
                 @else
                     <span class="brand-logo">{{ strtoupper(substr($appName ?? 'SP', 0, 1)) }}</span>
                 @endif
-                <span>{{ $appName ?? 'Student Portal' }}</span>
+                <span>{{ $appName ?? __('Student Portal') }}</span>
             </p>
+            <p class="sidebar-greeting">{{ __('Hello') }} {{ $sidebarUser?->name }}</p>
             <nav class="nav">
                 @if ($can('dashboard.view'))
                     <a href="{{ $withLang('dashboard') }}" class="nav-link {{ $currentRoute === 'dashboard' ? 'active' : '' }}">{{ __('Overview') }}</a>
@@ -420,7 +448,10 @@
                     <a href="{{ $withLang('dashboard.attendances.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.attendances.') ? 'active' : '' }}">{{ __('Attendance') }}</a>
                 @endif
                 @if ($can('payments.view'))
-                    <a href="{{ $withLang('dashboard.payments.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.payments.') ? 'active' : '' }}">{{ __('Payments') }}</a>
+                    <a href="{{ $withLang('dashboard.payments.index') }}" class="nav-link {{ $isPaymentsRoute ? 'active' : '' }}">{{ __('Payments') }}</a>
+                @endif
+                @if ($can('payments.view') && $sidebarUser && !in_array($sidebarUser->role, ['parent', 'student'], true))
+                    <a href="{{ $withLang('dashboard.payments.proofs.index') }}" class="nav-link {{ $isPaymentsProofsRoute ? 'active' : '' }}">{{ __('Payment Proofs') }}</a>
                 @endif
                 @if ($can('absences.view'))
                     <a href="{{ $withLang('dashboard.absences.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.absences.') ? 'active' : '' }}">{{ __('Absence Notes') }}</a>
@@ -438,9 +469,11 @@
                     <a href="{{ $withLang('dashboard.notifications.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.notifications.') ? 'active' : '' }}">
                         <span class="nav-link-row">
                             <span>{{ __('Notifications') }}</span>
-                            @if ($unreadNotifications > 0)
-                                <span class="nav-badge">{{ $unreadNotifications > 99 ? '!' : $unreadNotifications }}</span>
-                            @endif
+                            <span
+                                id="nav-notification-badge"
+                                class="nav-badge"
+                                @if ($unreadNotifications <= 0) hidden @endif
+                            >{{ $unreadNotifications > 99 ? '99+' : $unreadNotifications }}</span>
                         </span>
                     </a>
                 @endif
@@ -455,6 +488,7 @@
                 @endif
                 @if ($can('admin.settings.manage'))
                     <a href="{{ $withLang('dashboard.admin.settings.index') }}" class="nav-link {{ $currentRoute === 'dashboard.admin.settings.index' ? 'active' : '' }}">{{ __('App Settings') }}</a>
+                    <a href="{{ $withLang('dashboard.admin.tuition-programs.index') }}" class="nav-link {{ str_starts_with($currentRoute, 'dashboard.admin.tuition-programs.') ? 'active' : '' }}">{{ __('Tuition Programs') }}</a>
                 @endif
                 @if ($can('admin.database.manage'))
                     <a href="{{ $withLang('dashboard.admin.database.index') }}" class="nav-link {{ $currentRoute === 'dashboard.admin.database.index' ? 'active' : '' }}">{{ __('Database Tools') }}</a>
@@ -486,9 +520,9 @@
                 <div class="top-right">
                     <label for="lang-select" style="display:none;">{{ __('Language') }}</label>
                     <select id="lang-select" class="language-select" aria-label="Language">
-                        <option value="en" @selected(app()->getLocale() === 'en')>English</option>
-                        <option value="id" @selected(app()->getLocale() === 'id')>Bahasa Indonesia</option>
-                        <option value="zh" @selected(app()->getLocale() === 'zh')>中文</option>
+                        <option value="en" @selected(app()->getLocale() === 'en')>{{ __('auth.lang_en') }}</option>
+                        <option value="id" @selected(in_array(app()->getLocale(), ['id', 'in'], true))>{{ __('auth.lang_id') }}</option>
+                        <option value="zh" @selected(app()->getLocale() === 'zh')>{{ __('auth.lang_zh') }}</option>
                     </select>
                     <form method="POST" action="{{ route('logout', ['lang' => app()->getLocale()]) }}">
                         @csrf
@@ -502,10 +536,12 @@
             @endif
 
             @if ($errors->any())
-                <div class="alert alert-error">Please check the form fields and try again.</div>
+                <div class="alert alert-error">{{ __('Please check the form fields and try again.') }}</div>
             @endif
 
-            @yield('content')
+            <div class="main-content">
+                @yield('content')
+            </div>
         </main>
     </div>
 
@@ -513,37 +549,37 @@
         <div class="modal-backdrop" data-modal-close></div>
         <div class="modal-card">
             <div class="modal-head">
-                <h2>Profile Settings</h2>
-                <button class="btn-outline" type="button" data-modal-close>Close</button>
+                <h2>{{ __('Profile Settings') }}</h2>
+                <button class="btn-outline" type="button" data-modal-close>{{ __('Close') }}</button>
             </div>
             <div class="grid">
                 <section class="card" style="grid-column: span 6;">
-                    <h3 style="margin:0 0 .6rem;font-size:1rem;">Profile</h3>
+                    <h3 style="margin:0 0 .6rem;font-size:1rem;">{{ __('Profile') }}</h3>
                     <form method="POST" action="{{ route('dashboard.profile.update', ['lang' => app()->getLocale()]) }}" id="profile-form">
                         @csrf
                         <div class="field">
-                            <label for="profile-name">Display Name</label>
+                            <label for="profile-name">{{ __('Display Name') }}</label>
                             <input id="profile-name" name="name" type="text" value="{{ $sidebarUser?->name }}" required>
                         </div>
                         <div class="field">
-                            <label>Email</label>
+                            <label>{{ __('Email') }}</label>
                             <input type="text" value="{{ $sidebarUser?->email }}" readonly>
                         </div>
 
                         <div class="field">
-                            <label>Profile Photo</label>
+                            <label>{{ __('Profile Photo') }}</label>
                             <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;">
                                 <div style="width:96px;height:96px;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#fff7d1;display:flex;align-items:center;justify-content:center;">
                                     @if ($sidebarAvatar)
                                         <img src="{{ $sidebarAvatar }}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;">
                                     @else
-                                        <span class="muted">No photo</span>
+                                        <span class="muted">{{ __('No photo') }}</span>
                                     @endif
                                 </div>
                                 <div>
                                     <input id="avatar-input" type="file" accept="image/*">
                                     <input type="hidden" name="avatar_cropped" id="avatar-cropped">
-                                    <p class="muted" style="margin:.3rem 0 0;">Upload a square photo. You can crop it below.</p>
+                                    <p class="muted" style="margin:.3rem 0 0;">{{ __('Upload a square photo. You can crop it below.') }}</p>
                                 </div>
                             </div>
                         </div>
@@ -552,40 +588,40 @@
                             <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center;">
                                 <canvas id="crop-canvas" width="240" height="240" style="border:1px solid var(--line);border-radius:12px;background:#fff7d1;"></canvas>
                                 <div>
-                                    <label for="zoom" class="muted" style="display:block;margin-bottom:.3rem;">Zoom</label>
+                                    <label for="zoom" class="muted" style="display:block;margin-bottom:.3rem;">{{ __('Zoom') }}</label>
                                     <input id="zoom" type="range" min="1" max="3" step="0.01" value="1">
                                     <div class="actions" style="margin-top:.6rem;">
-                                        <button type="button" class="btn-outline" id="use-crop">Use Crop</button>
+                                        <button type="button" class="btn-outline" id="use-crop">{{ __('Use Crop') }}</button>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         <div class="actions" style="margin-top:.8rem;">
-                            <button type="submit" class="btn">Save Profile</button>
+                            <button type="submit" class="btn">{{ __('Save Profile') }}</button>
                         </div>
                     </form>
                 </section>
 
                 <section class="card" style="grid-column: span 6;">
-                    <h3 style="margin:0 0 .6rem;font-size:1rem;">Change Password</h3>
+                    <h3 style="margin:0 0 .6rem;font-size:1rem;">{{ __('Change Password') }}</h3>
                     <form method="POST" action="{{ route('dashboard.profile.password', ['lang' => app()->getLocale()]) }}">
                         @csrf
                         <div class="field">
-                            <label for="current_password">Current Password</label>
+                            <label for="current_password">{{ __('Current Password') }}</label>
                             <input id="current_password" name="current_password" type="password" required>
                         </div>
                         <div class="field">
-                            <label for="password">New Password</label>
+                            <label for="password">{{ __('New Password') }}</label>
                             <input id="password" name="password" type="password" minlength="6" required>
                         </div>
                         <div class="field">
-                            <label for="password_confirmation">Confirm New Password</label>
+                            <label for="password_confirmation">{{ __('Confirm New Password') }}</label>
                             <input id="password_confirmation" name="password_confirmation" type="password" minlength="6" required>
                         </div>
                         <div class="actions">
-                            <button type="submit" class="btn">Update Password</button>
-                            <a class="btn-outline" href="{{ route('password.request') }}">Forgot password?</a>
+                            <button type="submit" class="btn">{{ __('Update Password') }}</button>
+                            <a class="btn-outline" href="{{ route('password.request') }}">{{ __('Forgot password?') }}</a>
                         </div>
                     </form>
                 </section>
@@ -598,11 +634,14 @@
             const select = document.getElementById('lang-select');
             if (!select) return;
 
-            select.addEventListener('change', function () {
+            const applyLanguage = function () {
                 const nextUrl = new URL(window.location.href);
                 nextUrl.searchParams.set('lang', this.value);
-                window.location.href = nextUrl.toString();
-            });
+                window.location.assign(nextUrl.toString());
+            };
+
+            select.addEventListener('input', applyLanguage);
+            select.addEventListener('change', applyLanguage);
         })();
 
         (function () {
@@ -639,6 +678,48 @@
                     closeModal(modal);
                 });
             });
+        })();
+
+        (function () {
+            const animatedItems = document.querySelectorAll('.main-content > *:not(.grid), .main-content .grid > *');
+            animatedItems.forEach(function (item, index) {
+                item.style.animationDelay = (index * 0.06) + 's';
+            });
+        })();
+
+        (function () {
+            const badge = document.getElementById('nav-notification-badge');
+            if (!badge) return;
+
+            const refreshUrl = @json(route('dashboard.notifications.unread-count', ['lang' => app()->getLocale()]));
+
+            function updateBadge(nextCount) {
+                if (nextCount > 0) {
+                    badge.hidden = false;
+                    badge.textContent = nextCount > 99 ? '99+' : String(nextCount);
+                } else {
+                    badge.hidden = true;
+                    badge.textContent = '';
+                }
+            }
+
+            function pollUnreadCount() {
+                fetch(refreshUrl, { headers: { 'Accept': 'application/json' } })
+                    .then(function (response) {
+                        if (!response.ok) return null;
+                        return response.json();
+                    })
+                    .then(function (payload) {
+                        if (!payload || typeof payload.unread_count !== 'number') return;
+                        updateBadge(payload.unread_count);
+                    })
+                    .catch(function () {
+                        // keep existing badge value when polling fails
+                    });
+            }
+
+            pollUnreadCount();
+            window.setInterval(pollUnreadCount, 15000);
         })();
 
         (function () {

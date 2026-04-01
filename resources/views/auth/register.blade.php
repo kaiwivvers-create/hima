@@ -57,7 +57,7 @@
             <label for="lang-select" style="display:none;">{{ __('auth.lang_label') }}</label>
             <select id="lang-select" class="language-select" aria-label="{{ __('auth.lang_label') }}">
                 <option value="en" @selected(app()->getLocale() === 'en')>{{ __('auth.lang_en') }}</option>
-                <option value="id" @selected(app()->getLocale() === 'id')>{{ __('auth.lang_id') }}</option>
+                <option value="id" @selected(in_array(app()->getLocale(), ['id', 'in'], true))>{{ __('auth.lang_id') }}</option>
                 <option value="zh" @selected(app()->getLocale() === 'zh')>{{ __('auth.lang_zh') }}</option>
             </select>
             <a class="top-link" href="{{ url('/') }}">
@@ -152,11 +152,14 @@
             const select = document.getElementById('lang-select');
             if (!select) return;
 
-            select.addEventListener('change', function () {
+            const applyLanguage = function () {
                 const nextUrl = new URL(window.location.href);
                 nextUrl.searchParams.set('lang', this.value);
-                window.location.href = nextUrl.toString();
-            });
+                window.location.assign(nextUrl.toString());
+            };
+
+            select.addEventListener('input', applyLanguage);
+            select.addEventListener('change', applyLanguage);
         })();
     </script>
 </body>

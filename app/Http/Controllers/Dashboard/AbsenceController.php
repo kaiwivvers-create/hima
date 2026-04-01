@@ -18,7 +18,7 @@ class AbsenceController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('permission:absences.update')->only(['edit', 'update']);
+        $this->middleware('permission:absences.update')->only(['edit', 'update', 'approve', 'reject']);
         $this->middleware('permission:absences.delete')->only(['destroy']);
     }
 
@@ -220,6 +220,16 @@ class AbsenceController extends Controller
             ->with('success', 'Absence record deleted successfully.');
     }
 
+    public function approve(Absence $absence): RedirectResponse
+    {
+        return $this->setVerificationStatus($absence, 'approved', 'Absence approved.');
+    }
+
+    public function reject(Absence $absence): RedirectResponse
+    {
+        return $this->setVerificationStatus($absence, 'rejected', 'Absence rejected.');
+    }
+
     private function applyExcusedRange(Absence $absence): void
     {
         if (!$absence->start_date || !$absence->end_date) {
@@ -295,5 +305,46 @@ class AbsenceController extends Controller
             ->where('role_permission.role_id', $roleId)
             ->where('permissions.name', $permission)
             ->exists();
+    }
+
+    private function setVerificationStatus(Absence $absence, string $status, string $successMessage): RedirectResponse
+    {
+        if (!in_array($status, ['approved', 'rejected'], true)) {
+            abort(422);
+        }
+
+        $previousStatus = $absence->verification_status;
+        if ($previousStatus === $status) {
+            return redirect()->route('dashboard.absences.index', ['lang' => app()->getLocale()])
+                ->with('success', $successMessage);
+        }
+
+        $before = ActivityLogger::snapshot($absence, 'absence');
+        $absence->update(['verification_status' => $status]);
+
+        ActivityLogger::log(
+            'absence.updated',
+            'absence',
+            $absence->id,
+            'Absence verification set to '.$status.'.',
+            $before,
+            ActivityLogger::snapshot($absence, 'absence')
+        );
+
+        if ($previousStatus === 'approved') {
+            $this->clearSyncedAttendance(
+                $absence->student_id,
+                $absence->start_date?->toDateString(),
+                $absence->end_date?->toDateString(),
+                $absence->id
+            );
+        }
+
+        if ($status === 'approved') {
+            $this->applyExcusedRange($absence);
+        }
+
+        return redirect()->route('dashboard.absences.index', ['lang' => app()->getLocale()])
+            ->with('success', $successMessage);
     }
 }

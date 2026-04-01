@@ -32,13 +32,13 @@
             <input id="password" name="password" type="password" minlength="6" required>
         </div>
         <div class="field">
-            <label>Schedule Days</label>
-            <div class="actions">
-                @foreach ($days as $day)
-                    <label><input type="checkbox" name="schedule_days[]" value="{{ $day }}" @checked(in_array($day, old('schedule_days', []), true))> {{ $dayLabels[$day] ?? strtoupper($day) }}</label>
-                @endforeach
+                <label>Schedule Days</label>
+                <div class="actions">
+                    @foreach ($days as $day)
+                        <label><input type="checkbox" name="schedule_days[]" value="{{ $day }}" @checked(in_array($day, old('schedule_days', $days), true))> {{ $dayLabels[$day] ?? strtoupper($day) }}</label>
+                    @endforeach
+                </div>
             </div>
-        </div>
         <div class="field">
             <label for="tuition_program">Tuition Program</label>
             <select id="tuition_program" name="tuition_program" class="js-tuition-program" data-target="tuition_amount" data-override="tuition_override">

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
+use App\Models\PaymentProof;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use Illuminate\Http\RedirectResponse;
@@ -44,6 +45,7 @@ class PaymentController extends Controller
         }
 
         $isAdminView = $user && $user->role !== 'parent' && $user->role !== 'student';
+        $latestProofByPaymentId = collect();
         if ($isAdminView) {
             $payments = $query->get();
             $modalPayments = $payments;
@@ -72,6 +74,17 @@ class PaymentController extends Controller
         } else {
             $payments = $query->paginate(10);
             $modalPayments = $payments->getCollection();
+            if ($user && $user->role === 'parent') {
+                $paymentIds = $modalPayments->pluck('id')->all();
+                if (!empty($paymentIds)) {
+                    $latestProofByPaymentId = PaymentProof::query()
+                        ->whereIn('payment_id', $paymentIds)
+                        ->orderByDesc('created_at')
+                        ->get()
+                        ->unique('payment_id')
+                        ->keyBy('payment_id');
+                }
+            }
         }
 
         return view('dashboard.payments.index', [
@@ -80,6 +93,7 @@ class PaymentController extends Controller
             'studentCards' => $studentCards,
             'modalPayments' => $modalPayments,
             'isAdminView' => $isAdminView,
+            'latestProofByPaymentId' => $latestProofByPaymentId,
         ]);
     }
 
@@ -238,37 +252,9 @@ class PaymentController extends Controller
 
     public function pay(Request $request, Payment $payment): RedirectResponse
     {
-        $user = $request->user();
-        if (!$user || $user->role !== 'parent') {
-            abort(403);
-        }
-
-        $allowedIds = DB::table('parent_student')
-            ->where('parent_user_id', $user->id)
-            ->pluck('student_user_id')
-            ->all();
-        if (!in_array((int) $payment->student_id, $allowedIds, true)) {
-            abort(403);
-        }
-
-        $payment->paid_amount = $payment->amount;
-        $payment->paid_at = now();
-        $payment->status = 'paid';
-        $payment->save();
-
-        ActivityLogger::log(
-            'payment.paid',
-            'payment',
-            $payment->id,
-            'Payment marked as paid.',
-            null,
-            ActivityLogger::snapshot($payment, 'payment')
-        );
-
         return redirect()->route('dashboard.payments.index', [
             'lang' => app()->getLocale(),
-            'receipt' => $payment->id,
-        ])->with('success', 'Payment completed.');
+        ])->withErrors(['payment' => 'Direct payment is disabled. Please submit payment proof for admin review.']);
     }
 
     public function receipt(Payment $payment): View
@@ -298,7 +284,7 @@ class PaymentController extends Controller
     public function generatePlan(Request $request): RedirectResponse
     {
         $user = $request->user();
-        if (!$user || $user->role !== 'parent') {
+        if (!$user || in_array($user->role, ['parent', 'student'], true)) {
             abort(403);
         }
 
@@ -309,14 +295,6 @@ class PaymentController extends Controller
             ],
             'plan' => ['required', Rule::in(['monthly', 'bi_monthly', 'triannual', 'yearly'])],
         ]);
-
-        $allowedIds = DB::table('parent_student')
-            ->where('parent_user_id', $user->id)
-            ->pluck('student_user_id')
-            ->all();
-        if (!in_array((int) $validated['student_id'], $allowedIds, true)) {
-            abort(403);
-        }
 
         $student = User::findOrFail($validated['student_id']);
         $tuition = (float) ($student->tuition_amount ?? 0);
@@ -360,24 +338,6 @@ class PaymentController extends Controller
                 'status' => 'pending',
             ]);
             $created++;
-        }
-
-        $firstPayment = Payment::where('student_id', $student->id)
-            ->where('invoice_no', 'like', 'TUITION-'.$student->id.'-'.$year.'-%')
-            ->where('status', '!=', 'paid')
-            ->orderBy('due_date')
-            ->first();
-
-        if ($firstPayment) {
-            $firstPayment->paid_amount = $firstPayment->amount;
-            $firstPayment->paid_at = now();
-            $firstPayment->status = 'paid';
-            $firstPayment->save();
-
-            return redirect()->route('dashboard.payments.index', [
-                'lang' => app()->getLocale(),
-                'receipt' => $firstPayment->id,
-            ])->with('success', $created.' payment(s) generated. First installment paid.');
         }
 
         return back()->with('success', $created.' payment(s) generated.');

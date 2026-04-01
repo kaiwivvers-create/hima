@@ -7,16 +7,17 @@ use App\Http\Controllers\Dashboard\AttendanceController;
 use App\Http\Controllers\Dashboard\DashboardController;
 use App\Http\Controllers\Dashboard\ParentConnectionController;
 use App\Http\Controllers\Dashboard\PaymentController;
+use App\Http\Controllers\Dashboard\PaymentProofController;
 use App\Http\Controllers\Dashboard\NotificationController;
 use App\Http\Controllers\Dashboard\ProfileController;
 use App\Http\Controllers\Dashboard\PermissionController;
 use App\Http\Controllers\Dashboard\ConnectionsController;
 use App\Http\Controllers\Dashboard\DatabaseToolsController;
 use App\Http\Controllers\Dashboard\StudentController;
+use App\Http\Controllers\Dashboard\TuitionProgramController;
 use App\Http\Controllers\Dashboard\UserController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Models\User;
-use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -96,36 +97,18 @@ Route::middleware(['guest', 'apply.locale'])->group(function () {
             null,
             \App\Services\ActivityLogger::snapshot($user, 'user')
         );
-        $user->sendEmailVerificationNotification();
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('verification.notice', ['lang' => app()->getLocale()])
-            ->with('success', __('auth.verify_email_sent'));
+        return redirect()->route('dashboard', ['lang' => app()->getLocale()])
+            ->with('success', __('Account created successfully.'));
     })->name('register.post');
 });
 
 Route::middleware(['auth', 'apply.locale'])->group(function () {
-    Route::get('/email/verify', function () {
-        return view('auth.verify-email');
-    })->name('verification.notice');
-
-    Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
-        $request->fulfill();
-
-        return redirect()->route('dashboard', ['lang' => app()->getLocale()])
-            ->with('success', __('auth.verify_email_done'));
-    })->middleware('signed')->name('verification.verify');
-
-    Route::post('/email/verification-notification', function (Request $request) {
-        $request->user()->sendEmailVerificationNotification();
-
-        return back()->with('success', __('auth.verify_email_resent'));
-    })->middleware('throttle:6,1')->name('verification.send');
-
-    Route::middleware('verified')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/notifications', [NotificationController::class, 'index'])->name('dashboard.notifications.index');
+    Route::get('/dashboard/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('dashboard.notifications.unread-count');
     Route::post('/dashboard/notifications/read-all', [NotificationController::class, 'readAll'])->name('dashboard.notifications.read-all');
     Route::post('/dashboard/notifications/{notification}/read', [NotificationController::class, 'read'])->name('dashboard.notifications.read');
     Route::post('/dashboard/notifications/{notification}/archive', [NotificationController::class, 'archive'])->name('dashboard.notifications.archive');
@@ -141,8 +124,12 @@ Route::middleware(['auth', 'apply.locale'])->group(function () {
         Route::post('attendances/mark', [AttendanceController::class, 'mark'])->name('attendances.mark');
         Route::resource('attendances', AttendanceController::class)->except(['show']);
 
+        Route::post('absences/{absence}/approve', [AbsenceController::class, 'approve'])->name('absences.approve');
+        Route::post('absences/{absence}/reject', [AbsenceController::class, 'reject'])->name('absences.reject');
         Route::resource('students', StudentController::class)->except(['show']);
 
+        Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])
+            ->name('users.reset-password');
         Route::resource('users', UserController::class)->except(['show']);
 
         Route::get('profile', [ProfileController::class, 'index'])->name('profile.index');
@@ -171,6 +158,18 @@ Route::middleware(['auth', 'apply.locale'])->group(function () {
         Route::get('admin/settings', [AppSettingsController::class, 'index'])
             ->middleware('permission:admin.settings.manage')
             ->name('admin.settings.index');
+        Route::get('admin/tuition-programs', [TuitionProgramController::class, 'index'])
+            ->middleware('permission:admin.settings.manage')
+            ->name('admin.tuition-programs.index');
+        Route::post('admin/tuition-programs', [TuitionProgramController::class, 'store'])
+            ->middleware('permission:admin.settings.manage')
+            ->name('admin.tuition-programs.store');
+        Route::put('admin/tuition-programs/{program}', [TuitionProgramController::class, 'update'])
+            ->middleware('permission:admin.settings.manage')
+            ->name('admin.tuition-programs.update');
+        Route::delete('admin/tuition-programs/{program}', [TuitionProgramController::class, 'destroy'])
+            ->middleware('permission:admin.settings.manage')
+            ->name('admin.tuition-programs.destroy');
         Route::post('admin/settings/branding', [AppSettingsController::class, 'updateBranding'])
             ->middleware('permission:admin.settings.manage')
             ->name('admin.settings.branding.update');
@@ -206,11 +205,14 @@ Route::middleware(['auth', 'apply.locale'])->group(function () {
 
         Route::post('payments/plan', [PaymentController::class, 'generatePlan'])->name('payments.plan');
         Route::post('payments/{payment}/pay', [PaymentController::class, 'pay'])->name('payments.pay');
+        Route::post('payments/{payment}/proofs', [PaymentProofController::class, 'store'])->name('payments.proofs.store');
+        Route::get('payments/proofs', [PaymentProofController::class, 'index'])->name('payments.proofs.index');
+        Route::post('payments/proofs/{proof}/approve', [PaymentProofController::class, 'approve'])->name('payments.proofs.approve');
+        Route::post('payments/proofs/{proof}/reject', [PaymentProofController::class, 'reject'])->name('payments.proofs.reject');
         Route::get('payments/{payment}/receipt', [PaymentController::class, 'receipt'])->name('payments.receipt');
         Route::resource('payments', PaymentController::class)->except(['show']);
 
         Route::resource('absences', AbsenceController::class)->except(['show']);
-    });
     });
 
     Route::post('/logout', function (Request $request) {

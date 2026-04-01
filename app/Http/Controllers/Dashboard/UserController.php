@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -18,7 +19,7 @@ class UserController extends Controller
     {
         $this->middleware('permission:users.view')->only(['index']);
         $this->middleware('permission:users.create')->only(['create', 'store']);
-        $this->middleware('permission:users.update')->only(['edit', 'update']);
+        $this->middleware('permission:users.update')->only(['edit', 'update', 'resetPassword']);
         $this->middleware('permission:users.delete')->only(['destroy']);
     }
 
@@ -28,6 +29,9 @@ class UserController extends Controller
         $roleFilter = (string) $request->query('role', '');
 
         $query = User::query()->latest();
+        if (!$this->isSuperAdmin()) {
+            $query->where('role', '!=', 'super admin');
+        }
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
@@ -88,6 +92,8 @@ class UserController extends Controller
 
     public function edit(User $user): View
     {
+        $this->ensureCanManageUser($user);
+
         return view('dashboard.users.edit', [
             'user' => $user,
             'roles' => $this->roles(),
@@ -96,6 +102,8 @@ class UserController extends Controller
 
     public function update(Request $request, User $user): RedirectResponse
     {
+        $this->ensureCanManageUser($user);
+
         $roles = $this->roles();
 
         $validated = $request->validate([
@@ -145,6 +153,8 @@ class UserController extends Controller
 
     public function destroy(User $user): RedirectResponse
     {
+        $this->ensureCanManageUser($user);
+
         $before = ActivityLogger::snapshot($user, 'user');
         $user->delete();
 
@@ -161,15 +171,58 @@ class UserController extends Controller
             ->with('success', 'User deleted successfully.');
     }
 
+    public function resetPassword(User $user): RedirectResponse
+    {
+        $this->ensureCanManageUser($user);
+
+        $temporaryPassword = Str::random(10);
+        $user->update([
+            'password' => Hash::make($temporaryPassword),
+        ]);
+
+        ActivityLogger::log(
+            'user.password_reset',
+            'user',
+            $user->id,
+            'Password reset for: '.$user->email,
+            null,
+            null
+        );
+
+        return redirect()->route('dashboard.users.index', ['lang' => app()->getLocale()])
+            ->with('success', 'Password reset for '.$user->email.'. Temporary password: '.$temporaryPassword);
+    }
+
     /**
      * @return array<int, string>
      */
     private function roles(): array
     {
-        return DB::table('roles')
+        $roles = DB::table('roles')
             ->orderBy('name')
             ->pluck('name')
             ->all();
+
+        if (!$this->isSuperAdmin()) {
+            $roles = array_values(array_filter(
+                $roles,
+                static fn (string $role): bool => $role !== 'super admin'
+            ));
+        }
+
+        return $roles;
+    }
+
+    private function isSuperAdmin(): bool
+    {
+        return auth()->user()?->role === 'super admin';
+    }
+
+    private function ensureCanManageUser(User $user): void
+    {
+        if ($user->role === 'super admin' && !$this->isSuperAdmin()) {
+            abort(403);
+        }
     }
 
 }

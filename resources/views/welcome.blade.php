@@ -412,7 +412,7 @@
                 <label for="lang-select" style="display:none;">Language</label>
                 <select id="lang-select" class="language-select" aria-label="Select language">
                     <option value="en" @selected(app()->getLocale() === 'en')>English</option>
-                    <option value="id" @selected(app()->getLocale() === 'id')>Bahasa Indonesia</option>
+                    <option value="id" @selected(in_array(app()->getLocale(), ['id', 'in'], true))>Bahasa Indonesia</option>
                     <option value="zh" @selected(app()->getLocale() === 'zh')>中文</option>
                 </select>
                 @if (Route::has('login'))
@@ -537,11 +537,14 @@
             const select = document.getElementById('lang-select');
             if (!select) return;
 
-            select.addEventListener('change', function () {
+            const applyLanguage = function () {
                 const nextParams = new URLSearchParams(window.location.search);
                 nextParams.set('lang', this.value);
                 window.location.search = nextParams.toString();
-            });
+            };
+
+            select.addEventListener('input', applyLanguage);
+            select.addEventListener('change', applyLanguage);
         })();
     </script>
 </body>

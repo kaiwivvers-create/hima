@@ -1,9 +1,23 @@
 @extends('dashboard.layout')
 
 @section('title', 'Dashboard Overview')
-@section('page_title', 'Dashboard Overview')
+@section('page_title')
+    {{ __('Hello') }} {{ auth()->user()?->name }}
+@endsection
 
 @section('content')
+@php
+    $attendanceStatusText = function (?string $status) {
+        return match($status) {
+            'present' => __('Present'),
+            'late' => __('Sick'),
+            'sick' => __('Sick'),
+            'excused' => __('Excused'),
+            'absent' => __('Absent'),
+            default => '-',
+        };
+    };
+@endphp
 @if ($isStudent ?? false)
     <div class="grid">
         <section class="card kpi">
@@ -25,7 +39,7 @@
                     @forelse($recentAttendances as $attendance)
                         <tr>
                             <td>{{ $attendance->attendance_date?->format('Y-m-d') }}</td>
-                            <td>{{ ucfirst($attendance->status) }}</td>
+                            <td>{{ $attendanceStatusText($attendance->status) }}</td>
                             <td>{{ $attendance->notes ?: '-' }}</td>
                         </tr>
                     @empty
@@ -58,10 +72,10 @@
                 }
                 $statusLabel = function ($status) {
                     return match($status) {
-                        'present' => 'P',
-                        'late' => 'S',
-                        'excused' => 'I',
-                        'absent' => 'A',
+                        'present' => __('Present Short'),
+                        'late' => __('Sick Short'),
+                        'excused' => __('Excused Short'),
+                        'absent' => __('Absent Short'),
                         default => '-'
                     };
                 };
@@ -152,6 +166,21 @@
     </div>
 @elseif ($isParent ?? false)
     <div class="grid">
+        <section class="card" style="grid-column: span 6;">
+            <p class="muted" style="margin:0 0 .25rem;">Missed Payments (Past Due)</p>
+            <p style="margin:0;font-size:2rem;font-weight:800;">{{ $missingPayments ?? 0 }}</p>
+        </section>
+        <section class="card" style="grid-column: span 6;">
+            <p class="muted" style="margin:0 0 .25rem;">Days Until Next Payment Due</p>
+            <p style="margin:0;font-size:2rem;font-weight:800;">
+                @if (($daysUntilNextPaymentDue ?? null) === null)
+                    -
+                @else
+                    {{ $daysUntilNextPaymentDue }}
+                @endif
+            </p>
+        </section>
+
         <section class="card" style="grid-column: span 12;">
             <h2 style="margin:.1rem 0 .4rem;font-size:1.05rem;">Connection Requests</h2>
             <form method="POST" action="{{ route('dashboard.parent-connection.request', ['lang' => app()->getLocale()]) }}" class="actions" style="align-items:end; margin-bottom:.6rem;">
@@ -204,6 +233,14 @@
             <p class="muted" style="margin:0 0 .25rem;">Total Students</p>
             <p style="margin:0;font-size:1.5rem;font-weight:800;">{{ $totalStudents }}</p>
         </section>
+        <section class="card" style="grid-column: span 6;">
+            <p class="muted" style="margin:0 0 .25rem;">This Month Income</p>
+            <p style="margin:0;font-size:2rem;font-weight:800;">{{ number_format((float) ($monthlyIncome ?? 0), 2) }}</p>
+        </section>
+        <section class="card" style="grid-column: span 6;">
+            <p class="muted" style="margin:0 0 .25rem;">Students Not Paid Yet This Month</p>
+            <p style="margin:0;font-size:2rem;font-weight:800;">{{ $unpaidStudentsThisMonth ?? 0 }}</p>
+        </section>
 
         <section class="card" style="grid-column: span 12;">
             <h2 style="margin:.1rem 0 .4rem;font-size:1.05rem;">Recent Attendance</h2>
@@ -221,7 +258,7 @@
                         <tr>
                             <td>{{ $attendance->student?->name ?? '-' }}</td>
                             <td>{{ $attendance->attendance_date?->format('Y-m-d') }}</td>
-                            <td>{{ ucfirst($attendance->status) }}</td>
+                            <td>{{ $attendanceStatusText($attendance->status) }}</td>
                             <td>{{ $attendance->notes ?: '-' }}</td>
                         </tr>
                     @empty

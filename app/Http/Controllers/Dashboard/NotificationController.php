@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\UserNotification;
+use App\Services\NotificationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -14,6 +16,7 @@ class NotificationController extends Controller
     {
         $user = $request->user();
         abort_unless($user, 401);
+        app(NotificationService::class)->syncAdminPaymentReminders($user);
 
         $filter = (string) $request->query('filter', 'all');
 
@@ -103,5 +106,22 @@ class NotificationController extends Controller
             ->update(['read_at' => now()]);
 
         return back()->with('success', 'All notifications marked as read.');
+    }
+
+    public function unreadCount(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user, 401);
+        app(NotificationService::class)->syncAdminPaymentReminders($user);
+
+        $count = UserNotification::query()
+            ->where('user_id', $user->id)
+            ->whereNull('archived_at')
+            ->whereNull('read_at')
+            ->count();
+
+        return response()->json([
+            'unread_count' => $count,
+        ]);
     }
 }

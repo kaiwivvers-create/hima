@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Models\TuitionProgram;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use Illuminate\Http\RedirectResponse;
@@ -192,11 +193,23 @@ class StudentController extends Controller
      */
     private function tuitionPrograms(): array
     {
-        return [
-            'english' => ['label' => 'English', 'monthly' => 1500000],
-            'mandarin' => ['label' => 'Mandarin', 'monthly' => 2500000],
-            'bimbel' => ['label' => 'Bimbel (Tutoring)', 'monthly' => 2000000],
-        ];
+        $programs = TuitionProgram::query()
+            ->orderBy('name')
+            ->get(['slug', 'name', 'monthly_amount']);
+
+        if ($programs->isEmpty()) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($programs as $program) {
+            $result[$program->slug] = [
+                'label' => $program->name,
+                'monthly' => (float) $program->monthly_amount,
+            ];
+        }
+
+        return $result;
     }
 
     private function defaultAnnualTuition(string $program): ?float

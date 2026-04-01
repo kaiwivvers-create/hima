@@ -80,10 +80,38 @@ class DashboardController extends Controller
                 ->orderBy('students.name')
                 ->get();
 
+            $missingPayments = 0;
+            $daysUntilNextPaymentDue = null;
+            if ($children->isNotEmpty()) {
+                $today = now()->toDateString();
+                $childIds = $children->pluck('id')->all();
+
+                $missingPayments = Payment::query()
+                    ->whereIn('student_id', $childIds)
+                    ->whereNotNull('due_date')
+                    ->whereDate('due_date', '<', $today)
+                    ->where('status', '!=', 'paid')
+                    ->count();
+
+                $nextPaymentDue = Payment::query()
+                    ->whereIn('student_id', $childIds)
+                    ->whereNotNull('due_date')
+                    ->where('status', '!=', 'paid')
+                    ->orderBy('due_date')
+                    ->first();
+
+                if ($nextPaymentDue?->due_date) {
+                    $daysUntil = now()->startOfDay()->diffInDays($nextPaymentDue->due_date->startOfDay(), false);
+                    $daysUntilNextPaymentDue = max(0, $daysUntil);
+                }
+            }
+
             return view('dashboard.index', [
                 'isStudent' => false,
                 'isParent' => true,
                 'children' => $children,
+                'missingPayments' => $missingPayments,
+                'daysUntilNextPaymentDue' => $daysUntilNextPaymentDue,
             ]);
         }
 
@@ -92,14 +120,36 @@ class DashboardController extends Controller
             : 0;
 
         $pendingPayments = Payment::where('status', '!=', 'paid')->count();
+        $monthStart = now()->startOfMonth()->toDateString();
+        $monthEnd = now()->endOfMonth()->toDateString();
+
+        $paidThisMonthStudentIds = Payment::query()
+            ->select('student_id')
+            ->whereNotNull('student_id')
+            ->whereBetween('due_date', [$monthStart, $monthEnd])
+            ->groupBy('student_id')
+            ->havingRaw("SUM(CASE WHEN status != 'paid' THEN 1 ELSE 0 END) = 0")
+            ->pluck('student_id');
+
+        $unpaidStudentsThisMonth = User::query()
+            ->where('role', 'student')
+            ->whereNotIn('id', $paidThisMonthStudentIds)
+            ->count();
         $pendingAbsences = Absence::where('verification_status', 'pending')->count();
+        $monthlyIncome = (float) Payment::query()
+            ->whereIn('status', ['paid', 'partial'])
+            ->whereNotNull('paid_at')
+            ->whereBetween('paid_at', [$monthStart, $monthEnd])
+            ->sum('paid_amount');
 
         return view('dashboard.index', [
             'isStudent' => false,
             'isParent' => false,
             'attendanceRate' => $attendanceRate,
             'pendingPayments' => $pendingPayments,
+            'unpaidStudentsThisMonth' => $unpaidStudentsThisMonth,
             'pendingAbsences' => $pendingAbsences,
+            'monthlyIncome' => $monthlyIncome,
             'totalStudents' => User::where('role', 'student')->count(),
             'recentAttendances' => Attendance::with('student')->latest()->paginate(5, ['*'], 'attendance_page'),
             'recentPayments' => Payment::with('student')->latest()->take(5)->get(),
