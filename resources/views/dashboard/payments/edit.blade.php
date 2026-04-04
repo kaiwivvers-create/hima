@@ -1,5 +1,7 @@
 @extends('dashboard.layout')
 
+@php use App\Models\Payment; @endphp
+
 @section('title', 'Edit Payment')
 @section('page_title', 'Edit Payment')
 
@@ -57,6 +59,16 @@
                 <option value="paid" @selected(old('status', $payment->status) === 'paid')>Paid</option>
             </select>
             @error('status')<div class="error">{{ $message }}</div>@enderror
+        </div>
+
+        <div class="field">
+            <label for="payment_method">Payment Method</label>
+            <select id="payment_method" name="payment_method" required>
+                @foreach (Payment::METHODS as $method)
+                    <option value="{{ $method }}" @selected(old('payment_method', $payment->payment_method) === $method)>{{ ucfirst($method) }}</option>
+                @endforeach
+            </select>
+            @error('payment_method')<div class="error">{{ $message }}</div>@enderror
         </div>
 
         <div class="actions">

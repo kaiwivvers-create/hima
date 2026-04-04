@@ -129,6 +129,7 @@ class PaymentController extends Controller
             'due_date' => ['required', 'date'],
             'paid_at' => ['nullable', 'date'],
             'status' => ['required', Rule::in(['pending', 'partial', 'paid'])],
+            'payment_method' => ['required', Rule::in(Payment::METHODS)],
         ]);
 
         $user = $request->user();
@@ -196,6 +197,7 @@ class PaymentController extends Controller
             'due_date' => ['required', 'date'],
             'paid_at' => ['nullable', 'date'],
             'status' => ['required', Rule::in(['pending', 'partial', 'paid'])],
+            'payment_method' => ['required', Rule::in(Payment::METHODS)],
         ]);
 
         $user = $request->user();
@@ -336,6 +338,7 @@ class PaymentController extends Controller
                 'due_date' => $dueDate,
                 'paid_at' => null,
                 'status' => 'pending',
+                'payment_method' => 'transfer',
             ]);
             $created++;
         }

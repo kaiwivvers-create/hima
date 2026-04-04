@@ -215,6 +215,81 @@
             </table>
         </section>
     </div>
+@elseif ($isTeacher ?? false)
+    <div class="grid">
+        <section class="card kpi">
+            <p class="muted" style="margin:0 0 .25rem;">Total Students</p>
+            <p style="margin:0;font-size:1.5rem;font-weight:800;">{{ $totalStudents }}</p>
+        </section>
+        <section class="card kpi">
+            <p class="muted" style="margin:0 0 .25rem;">Attendance Marked Today</p>
+            <p style="margin:0;font-size:1.5rem;font-weight:800;">{{ $attendanceMarkedToday }}</p>
+        </section>
+        <section class="card kpi">
+            <p class="muted" style="margin:0 0 .25rem;">Students Not Marked Today</p>
+            <p style="margin:0;font-size:1.5rem;font-weight:800;">{{ $studentsWithoutAttendanceToday }}</p>
+        </section>
+        <section class="card kpi">
+            <p class="muted" style="margin:0 0 .25rem;">Pending Absence Verifications</p>
+            <p style="margin:0;font-size:1.5rem;font-weight:800;">{{ $pendingAbsences }}</p>
+        </section>
+
+        <section class="card" style="grid-column: span 7;">
+            <h2 style="margin:.1rem 0 .4rem;font-size:1.05rem;">Recent Attendance</h2>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($recentAttendances as $attendance)
+                        <tr>
+                            <td>{{ $attendance->student?->name ?? '-' }}</td>
+                            <td>{{ $attendance->attendance_date?->format('Y-m-d') }}</td>
+                            <td>{{ $attendanceStatusText($attendance->status) }}</td>
+                            <td>{{ $attendance->notes ?: '-' }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="4" class="muted">No attendance records yet.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+            <div class="pagination">{{ $recentAttendances->links() }}</div>
+        </section>
+
+        <section class="card" style="grid-column: span 5;">
+            <h2 style="margin:.1rem 0 .4rem;font-size:1.05rem;">Recent Absence Notes</h2>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Date</th>
+                        <th>Verification</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($recentAbsences as $absence)
+                        <tr>
+                            <td>{{ $absence->student?->name ?? '-' }}</td>
+                            <td>
+                                {{ $absence->start_date?->format('Y-m-d') }}
+                                @if ($absence->end_date && $absence->end_date->ne($absence->start_date))
+                                    - {{ $absence->end_date->format('Y-m-d') }}
+                                @endif
+                            </td>
+                            <td>{{ ucfirst($absence->verification_status) }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="3" class="muted">No absences recorded yet.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </section>
+    </div>
 @else
     <div class="grid">
         <section class="card kpi">
@@ -307,7 +382,12 @@
                     @forelse($recentAbsences as $absence)
                         <tr>
                             <td>{{ $absence->student?->name ?? '-' }}</td>
-                            <td>{{ $absence->absence_date?->format('Y-m-d') }}</td>
+                            <td>
+                                {{ $absence->start_date?->format('Y-m-d') }}
+                                @if ($absence->end_date && $absence->end_date->ne($absence->start_date))
+                                    - {{ $absence->end_date->format('Y-m-d') }}
+                                @endif
+                            </td>
                             <td>{{ ucfirst($absence->verification_status) }}</td>
                         </tr>
                     @empty

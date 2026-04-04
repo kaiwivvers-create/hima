@@ -509,7 +509,7 @@
                                 <path d="M1.5 4.5h21v15h-21v-15zm1.8 1.5v.6L12 12.9l8.7-6.3V6H3.3zm17.4 12v-9.3L12 15l-8.7-6.3V18h17.4z"/>
                             </svg>
                         </span>
-                        <a href="mailto:kaiwivvers@gmail.com">hello@example.com</a>
+                        <a href="{{ $appText['welcome_contact_email_href'] ?? 'mailto:kaiwivvers@gmail.com' }}">{{ $appText['welcome_contact_email_label'] ?? 'hello@example.com' }}</a>
                     </div>
                     <div class="contact-item">
                         <span class="contact-icon" aria-hidden="true">
@@ -517,7 +517,7 @@
                                 <path d="M20.52 3.48A11.86 11.86 0 0 0 12.07 0C5.53 0 .2 5.32.2 11.86c0 2.1.55 4.14 1.6 5.94L0 24l6.4-1.67a11.8 11.8 0 0 0 5.67 1.44h.01c6.54 0 11.86-5.32 11.86-11.86 0-3.17-1.23-6.14-3.42-8.43zM12.08 21.7h-.01a9.82 9.82 0 0 1-5-1.37l-.36-.21-3.8.99 1.01-3.71-.23-.38a9.8 9.8 0 0 1-1.5-5.17c0-5.43 4.42-9.85 9.86-9.85 2.64 0 5.12 1.03 6.98 2.89a9.8 9.8 0 0 1 2.88 6.99c0 5.44-4.42 9.86-9.83 9.86zm5.4-7.37c-.3-.15-1.78-.88-2.06-.98-.28-.1-.48-.15-.68.15-.2.3-.78.98-.95 1.18-.18.2-.35.23-.65.08-.3-.15-1.27-.47-2.42-1.5-.9-.8-1.5-1.78-1.67-2.08-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.53.15-.18.2-.3.3-.5.1-.2.05-.38-.02-.53-.08-.15-.68-1.64-.93-2.24-.25-.6-.5-.52-.68-.53h-.58c-.2 0-.53.08-.8.38-.28.3-1.06 1.03-1.06 2.52 0 1.48 1.08 2.92 1.23 3.12.15.2 2.12 3.23 5.13 4.53.72.31 1.28.5 1.72.64.72.23 1.37.2 1.88.12.57-.08 1.78-.73 2.03-1.43.25-.7.25-1.3.18-1.43-.08-.13-.28-.2-.58-.35z"/>
                             </svg>
                         </span>
-                        <a href="https://wa.me/6285363410088" target="_blank" rel="noopener noreferrer">+62 812-3456-7890</a>
+                        <a href="{{ $appText['welcome_contact_whatsapp_href'] ?? 'https://wa.me/6285363410088' }}" target="_blank" rel="noopener noreferrer">{{ $appText['welcome_contact_whatsapp_label'] ?? '+62 812-3456-7890' }}</a>
                     </div>
                     <div class="contact-item">
                         <span class="contact-icon" aria-hidden="true">
@@ -525,7 +525,7 @@
                                 <path d="M7.75 2h8.5A5.75 5.75 0 0 1 22 7.75v8.5A5.75 5.75 0 0 1 16.25 22h-8.5A5.75 5.75 0 0 1 2 16.25v-8.5A5.75 5.75 0 0 1 7.75 2zm-.12 1.9A3.73 3.73 0 0 0 3.9 7.63v8.74a3.73 3.73 0 0 0 3.73 3.73h8.74a3.73 3.73 0 0 0 3.73-3.73V7.63a3.73 3.73 0 0 0-3.73-3.73H7.63zm9.62 1.46a1.19 1.19 0 1 1 0 2.38 1.19 1.19 0 0 1 0-2.38zM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 1.9A3.1 3.1 0 1 0 12 15.1 3.1 3.1 0 0 0 12 8.9z"/>
                             </svg>
                         </span>
-                        <a href="https://instagram.com/octo__pie" target="_blank" rel="noopener noreferrer">@yourusername</a>
+                        <a href="{{ $appText['welcome_contact_instagram_href'] ?? 'https://instagram.com/octo__pie' }}" target="_blank" rel="noopener noreferrer">{{ $appText['welcome_contact_instagram_label'] ?? '@yourusername' }}</a>
                     </div>
                 </div>
             </div>

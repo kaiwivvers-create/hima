@@ -9,6 +9,8 @@ use App\Models\User;
 
 class Payment extends Model
 {
+    public const METHODS = ['cash', 'transfer'];
+
     protected $fillable = [
         'student_id',
         'invoice_no',
@@ -17,6 +19,7 @@ class Payment extends Model
         'due_date',
         'paid_at',
         'status',
+        'payment_method',
     ];
 
     protected function casts(): array

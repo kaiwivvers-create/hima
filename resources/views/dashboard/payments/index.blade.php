@@ -1,5 +1,7 @@
 @extends('dashboard.layout')
 
+@php use App\Models\Payment; @endphp
+
 @section('title', 'Payments')
 @section('page_title', 'Payments')
 
@@ -111,17 +113,18 @@
                         <div style="margin-top:.6rem; display:flex; flex-direction:column; gap:.4rem;">
                             @forelse ($card['payments'] as $payment)
                                 <div style="border:1px solid var(--line); border-radius:10px; padding:.6rem;">
-                                    <div style="display:flex; justify-content:space-between; gap:.6rem; flex-wrap:wrap;">
-                                        <div>
-                                            <p style="margin:0;font-weight:700;">{{ $payment->invoice_no }}</p>
-                                            <p class="muted" style="margin:.2rem 0 0;">Due {{ $payment->due_date?->format('Y-m-d') ?? '-' }}</p>
-                                        </div>
-                                        <div style="text-align:right;">
-                                            <p style="margin:0;font-weight:700;">{{ number_format((float) $payment->paid_amount, 2) }} / {{ number_format((float) $payment->amount, 2) }}</p>
-                                            <p class="muted" style="margin:.2rem 0 0;">{{ ucfirst($payment->status) }}</p>
-                                        </div>
-                                    </div>
-                                    <div class="actions" style="margin-top:.5rem;">
+                                      <div style="display:flex; justify-content:space-between; gap:.6rem; flex-wrap:wrap;">
+                                          <div>
+                                              <p style="margin:0;font-weight:700;">{{ $payment->invoice_no }}</p>
+                                              <p class="muted" style="margin:.2rem 0 0;">Due {{ $payment->due_date?->format('Y-m-d') ?? '-' }}</p>
+                                          </div>
+                                          <div style="text-align:right;">
+                                              <p style="margin:0;font-weight:700;">{{ number_format((float) $payment->paid_amount, 2) }} / {{ number_format((float) $payment->amount, 2) }}</p>
+                                              <p class="muted" style="margin:.2rem 0 0;">{{ ucfirst($payment->status) }}</p>
+                                          </div>
+                                      </div>
+                                      <p class="muted" style="margin:.2rem 0 0;font-size:.85rem;">Method: {{ ucfirst($payment->payment_method) }}</p>
+                                      <div class="actions" style="margin-top:.5rem;">
                                         @if ($payment->status === 'paid')
                                             <button class="btn-outline" type="button" data-modal-open="payment-receipt-{{ $payment->id }}">View</button>
                                         @endif
@@ -170,18 +173,19 @@
 @else
     <section class="card">
         <table class="table">
-            <thead>
-                <tr>
-                    <th>Student</th>
-                    <th>Invoice</th>
-                    <th>Amount</th>
-                    <th>Paid Amount</th>
-                    <th>Due Date</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
+              <thead>
+                  <tr>
+                      <th>Student</th>
+                      <th>Invoice</th>
+                      <th>Amount</th>
+                      <th>Paid Amount</th>
+                      <th>Due Date</th>
+                      <th>Status</th>
+                      <th>Method</th>
+                      <th>Actions</th>
+                  </tr>
+              </thead>
+              <tbody>
                 @forelse ($payments as $payment)
                     <tr>
                         <td>{{ $payment->student?->name ?? '-' }}</td>
@@ -189,14 +193,15 @@
                         <td>{{ number_format((float) $payment->amount, 2) }}</td>
                         <td>{{ number_format((float) $payment->paid_amount, 2) }}</td>
                         <td>{{ $payment->due_date?->format('Y-m-d') }}</td>
-                        <td>
-                            @if (auth()->user()?->role === 'parent' && $payment->status !== 'paid')
-                                Unpaid
-                            @else
-                                {{ ucfirst($payment->status) }}
-                            @endif
-                        </td>
-                        <td>
+                      <td>
+                          @if (auth()->user()?->role === 'parent' && $payment->status !== 'paid')
+                              Unpaid
+                          @else
+                              {{ ucfirst($payment->status) }}
+                          @endif
+                      </td>
+                      <td>{{ ucfirst($payment->payment_method) }}</td>
+                      <td>
                             <div class="actions">
                                 @if ($payment->status === 'paid')
                                     <button class="btn-outline" type="button" data-modal-open="payment-receipt-{{ $payment->id }}">View</button>
@@ -272,17 +277,25 @@
                 <label for="create-paid-at">Paid At</label>
                 <input id="create-paid-at" name="paid_at" type="date">
             </div>
-            <div class="field">
-                <label for="create-payment-status">Status</label>
-                <select id="create-payment-status" name="status" required>
-                    <option value="pending">Pending</option>
-                    <option value="partial">Partial</option>
-                    <option value="paid">Paid</option>
-                </select>
-            </div>
-            <div class="actions">
-                <button type="submit" class="btn">Save</button>
-            </div>
+              <div class="field">
+                  <label for="create-payment-status">Status</label>
+                  <select id="create-payment-status" name="status" required>
+                      <option value="pending">Pending</option>
+                      <option value="partial">Partial</option>
+                      <option value="paid">Paid</option>
+                  </select>
+              </div>
+              <div class="field">
+                  <label for="create-payment-method">Payment Method</label>
+                  <select id="create-payment-method" name="payment_method" required>
+                      @foreach (Payment::METHODS as $method)
+                          <option value="{{ $method }}" @selected(old('payment_method', 'transfer') === $method)>{{ ucfirst($method) }}</option>
+                      @endforeach
+                  </select>
+              </div>
+              <div class="actions">
+                  <button type="submit" class="btn">Save</button>
+              </div>
         </form>
     </div>
 </div>
@@ -299,6 +312,7 @@
                     </div>
                     <p style="margin:.2rem 0;"><strong>Invoice:</strong> {{ $payment->invoice_no }}</p>
                     <p style="margin:.2rem 0 .8rem;"><strong>Amount:</strong> {{ number_format((float) $payment->amount, 2) }}</p>
+                    <p style="margin:.2rem 0 .8rem;"><strong>Pay to this nomor rekening: </strong>{{ $appText['payment_proof_rekening_text'] ?? 'Pay to this nomor rekening:' }}</p>
                     <form method="POST" action="{{ route('dashboard.payments.proofs.store', ['payment' => $payment, 'lang' => app()->getLocale()]) }}" enctype="multipart/form-data">
                         @csrf
                         <div class="field">
@@ -363,17 +377,25 @@
                         <label for="edit-paid-at-{{ $payment->id }}">Paid At</label>
                         <input id="edit-paid-at-{{ $payment->id }}" name="paid_at" type="date" value="{{ $payment->paid_at?->format('Y-m-d') }}">
                     </div>
-                    <div class="field">
-                        <label for="edit-status-{{ $payment->id }}">Status</label>
-                        <select id="edit-status-{{ $payment->id }}" name="status" required>
-                            <option value="pending" @selected($payment->status === 'pending')>Pending</option>
-                            <option value="partial" @selected($payment->status === 'partial')>Partial</option>
-                            <option value="paid" @selected($payment->status === 'paid')>Paid</option>
-                        </select>
-                    </div>
-                    <div class="actions">
-                        <button type="submit" class="btn">Update</button>
-                    </div>
+                      <div class="field">
+                          <label for="edit-status-{{ $payment->id }}">Status</label>
+                          <select id="edit-status-{{ $payment->id }}" name="status" required>
+                              <option value="pending" @selected($payment->status === 'pending')>Pending</option>
+                              <option value="partial" @selected($payment->status === 'partial')>Partial</option>
+                              <option value="paid" @selected($payment->status === 'paid')>Paid</option>
+                          </select>
+                      </div>
+                      <div class="field">
+                          <label for="edit-payment-method-{{ $payment->id }}">Payment Method</label>
+                          <select id="edit-payment-method-{{ $payment->id }}" name="payment_method" required>
+                              @foreach (Payment::METHODS as $method)
+                                  <option value="{{ $method }}" @selected(old('payment_method', $payment->payment_method) === $method)>{{ ucfirst($method) }}</option>
+                              @endforeach
+                          </select>
+                      </div>
+                      <div class="actions">
+                          <button type="submit" class="btn">Update</button>
+                      </div>
                 </form>
             </div>
         </div>

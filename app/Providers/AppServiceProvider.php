@@ -46,6 +46,13 @@ class AppServiceProvider extends ServiceProvider
                 'welcome_person_body' => __('welcome.person_body'),
                 'welcome_map_title' => __('welcome.map_title'),
                 'welcome_map_body' => __('welcome.map_body'),
+                'payment_proof_rekening_text' => 'Pay to this nomor rekening:',
+                'welcome_contact_email_href' => 'mailto:kaiwivvers@gmail.com',
+                'welcome_contact_email_label' => 'hello@example.com',
+                'welcome_contact_whatsapp_href' => 'https://wa.me/6285363410088',
+                'welcome_contact_whatsapp_label' => '+62 812-3456-7890',
+                'welcome_contact_instagram_href' => 'https://instagram.com/octo__pie',
+                'welcome_contact_instagram_label' => '@yourusername',
             ];
             $appText = $appTextDefaults;
 

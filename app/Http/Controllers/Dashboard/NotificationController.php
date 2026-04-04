@@ -22,6 +22,9 @@ class NotificationController extends Controller
 
         $query = UserNotification::query()
             ->where('user_id', $user->id);
+        if ($user->role === 'teacher') {
+            $query->where('type', 'like', 'absence.%');
+        }
 
         if ($filter === 'unread') {
             $query->whereNull('read_at')->whereNull('archived_at');
@@ -116,6 +119,9 @@ class NotificationController extends Controller
 
         $count = UserNotification::query()
             ->where('user_id', $user->id)
+            ->when($user->role === 'teacher', function ($query) {
+                $query->where('type', 'like', 'absence.%');
+            })
             ->whereNull('archived_at')
             ->whereNull('read_at')
             ->count();

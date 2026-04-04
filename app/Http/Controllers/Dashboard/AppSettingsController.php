@@ -31,6 +31,13 @@ class AppSettingsController extends Controller
         'welcome_person_body',
         'welcome_map_title',
         'welcome_map_body',
+        'payment_proof_rekening_text',
+        'welcome_contact_email_href',
+        'welcome_contact_email_label',
+        'welcome_contact_whatsapp_href',
+        'welcome_contact_whatsapp_label',
+        'welcome_contact_instagram_href',
+        'welcome_contact_instagram_label',
     ];
 
     public function __construct()

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Absence;
 use App\Models\Payment;
 use App\Models\User;
 use App\Models\UserNotification;
@@ -17,8 +18,53 @@ class NotificationService
 
         $today = now()->startOfDay();
 
+        if ($user->role === 'teacher') {
+            $this->createPendingAbsenceReminders($user, $today);
+
+            return;
+        }
+
+        if (!in_array($user->role, ['admin', 'super admin'], true)) {
+            return;
+        }
+
         $this->createMonthlyUnpaidReminder($user, $today);
         $this->createDueDateReminders($user, $today);
+    }
+
+    private function createPendingAbsenceReminders(User $user, Carbon $today): void
+    {
+        $pendingAbsences = Absence::query()
+            ->with('student:id,name,email')
+            ->where('verification_status', 'pending')
+            ->latest('start_date')
+            ->get();
+
+        foreach ($pendingAbsences as $absence) {
+            $studentName = $absence->student?->name ?? __('Student');
+            $startDate = $absence->start_date?->format('Y-m-d') ?? '-';
+            $endDate = $absence->end_date?->format('Y-m-d') ?? '-';
+
+            $this->createDailyUniqueNotification(
+                $user,
+                'absence.pending.a'.$absence->id,
+                __('Absence note pending review'),
+                __(':student submitted an absence note for :start to :end.', [
+                    'student' => $studentName,
+                    'start' => $startDate,
+                    'end' => $endDate,
+                ]),
+                [
+                    'absence_id' => $absence->id,
+                    'student_id' => $absence->student_id,
+                    'student_name' => $studentName,
+                    'start_date' => $absence->start_date?->toDateString(),
+                    'end_date' => $absence->end_date?->toDateString(),
+                    'verification_status' => $absence->verification_status,
+                ],
+                $today
+            );
+        }
     }
 
     private function createDueDateReminders(User $user, Carbon $today): void

@@ -115,6 +115,35 @@ class DashboardController extends Controller
             ]);
         }
 
+        if ($user && $user->role === 'teacher') {
+            $today = now()->toDateString();
+            $totalStudents = User::query()->where('role', 'student')->count();
+
+            $attendanceMarkedToday = Attendance::query()
+                ->whereDate('attendance_date', $today)
+                ->distinct('student_id')
+                ->count('student_id');
+
+            $studentsWithoutAttendanceToday = max(0, $totalStudents - $attendanceMarkedToday);
+
+            return view('dashboard.index', [
+                'isStudent' => false,
+                'isParent' => false,
+                'isTeacher' => true,
+                'totalStudents' => $totalStudents,
+                'attendanceMarkedToday' => $attendanceMarkedToday,
+                'studentsWithoutAttendanceToday' => $studentsWithoutAttendanceToday,
+                'pendingAbsences' => Absence::where('verification_status', 'pending')->count(),
+                'recentAttendances' => Attendance::with('student')
+                    ->latest('attendance_date')
+                    ->paginate(10, ['*'], 'attendance_page'),
+                'recentAbsences' => Absence::with('student')
+                    ->latest('start_date')
+                    ->take(10)
+                    ->get(),
+            ]);
+        }
+
         $attendanceRate = Attendance::count() > 0
             ? round((Attendance::where('status', 'present')->count() / Attendance::count()) * 100)
             : 0;

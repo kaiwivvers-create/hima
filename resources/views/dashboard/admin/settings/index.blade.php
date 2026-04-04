@@ -153,6 +153,35 @@
                         <label for="text_{{ $langKey }}_welcome_map_body">Map Section Body</label>
                         <textarea id="text_{{ $langKey }}_welcome_map_body" name="text[{{ $langKey }}][welcome_map_body]" rows="3">{{ old('text.'.$langKey.'.welcome_map_body', $textSettings[$langKey]['welcome_map_body'] ?? '') }}</textarea>
                     </div>
+                    <hr style="border:none;border-top:1px dashed rgba(42,33,0,.2);margin:.8rem 0;">
+                    <div class="field">
+                        <label for="text_{{ $langKey }}_payment_proof_rekening_text">Payment Proof Text</label>
+                        <input id="text_{{ $langKey }}_payment_proof_rekening_text" name="text[{{ $langKey }}][payment_proof_rekening_text]" type="text" value="{{ old('text.'.$langKey.'.payment_proof_rekening_text', $textSettings[$langKey]['payment_proof_rekening_text'] ?? '') }}" placeholder="Pay to this nomor rekening: 1234567890">
+                    </div>
+                    <div class="field">
+                        <label for="text_{{ $langKey }}_welcome_contact_email_href">Home Contact: Email Link</label>
+                        <input id="text_{{ $langKey }}_welcome_contact_email_href" name="text[{{ $langKey }}][welcome_contact_email_href]" type="text" value="{{ old('text.'.$langKey.'.welcome_contact_email_href', $textSettings[$langKey]['welcome_contact_email_href'] ?? '') }}" placeholder="mailto:your@email.com">
+                    </div>
+                    <div class="field">
+                        <label for="text_{{ $langKey }}_welcome_contact_email_label">Home Contact: Email Text</label>
+                        <input id="text_{{ $langKey }}_welcome_contact_email_label" name="text[{{ $langKey }}][welcome_contact_email_label]" type="text" value="{{ old('text.'.$langKey.'.welcome_contact_email_label', $textSettings[$langKey]['welcome_contact_email_label'] ?? '') }}" placeholder="hello@example.com">
+                    </div>
+                    <div class="field">
+                        <label for="text_{{ $langKey }}_welcome_contact_whatsapp_href">Home Contact: WhatsApp Link</label>
+                        <input id="text_{{ $langKey }}_welcome_contact_whatsapp_href" name="text[{{ $langKey }}][welcome_contact_whatsapp_href]" type="text" value="{{ old('text.'.$langKey.'.welcome_contact_whatsapp_href', $textSettings[$langKey]['welcome_contact_whatsapp_href'] ?? '') }}" placeholder="https://wa.me/6281234567890">
+                    </div>
+                    <div class="field">
+                        <label for="text_{{ $langKey }}_welcome_contact_whatsapp_label">Home Contact: WhatsApp Text</label>
+                        <input id="text_{{ $langKey }}_welcome_contact_whatsapp_label" name="text[{{ $langKey }}][welcome_contact_whatsapp_label]" type="text" value="{{ old('text.'.$langKey.'.welcome_contact_whatsapp_label', $textSettings[$langKey]['welcome_contact_whatsapp_label'] ?? '') }}" placeholder="+62 812-3456-7890">
+                    </div>
+                    <div class="field">
+                        <label for="text_{{ $langKey }}_welcome_contact_instagram_href">Home Contact: Instagram Link</label>
+                        <input id="text_{{ $langKey }}_welcome_contact_instagram_href" name="text[{{ $langKey }}][welcome_contact_instagram_href]" type="text" value="{{ old('text.'.$langKey.'.welcome_contact_instagram_href', $textSettings[$langKey]['welcome_contact_instagram_href'] ?? '') }}" placeholder="https://instagram.com/youraccount">
+                    </div>
+                    <div class="field">
+                        <label for="text_{{ $langKey }}_welcome_contact_instagram_label">Home Contact: Instagram Text</label>
+                        <input id="text_{{ $langKey }}_welcome_contact_instagram_label" name="text[{{ $langKey }}][welcome_contact_instagram_label]" type="text" value="{{ old('text.'.$langKey.'.welcome_contact_instagram_label', $textSettings[$langKey]['welcome_contact_instagram_label'] ?? '') }}" placeholder="@yourusername">
+                    </div>
                 </div>
             @endforeach
             <div class="actions" style="margin-top:.8rem;">
