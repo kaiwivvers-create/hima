@@ -20,6 +20,12 @@
             <p style="margin:0;font-weight:700;">{{ $payment->student?->name ?? '-' }}</p>
             <p class="muted" style="margin:.2rem 0 0;">{{ $payment->student?->email ?? '' }}</p>
         </div>
+        @if ($payment->program)
+        <div class="card" style="grid-column: span 6;">
+            <p class="muted" style="margin:0 0 .35rem;">Program</p>
+            <p style="margin:0;font-weight:700;">{{ $payment->program->name }}</p>
+        </div>
+        @endif
         <div class="card" style="grid-column: span 6;">
             <p class="muted" style="margin:0 0 .35rem;">Status</p>
             <p style="margin:0;font-weight:700;">{{ ucfirst($payment->status) }}</p>

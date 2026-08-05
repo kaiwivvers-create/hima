@@ -22,6 +22,17 @@
         </div>
 
         <div class="field">
+            <label for="tuition_program_id">Tuition Program (optional)</label>
+            <select id="tuition_program_id" name="tuition_program_id">
+                <option value="">—</option>
+                @foreach ($programs as $program)
+                    <option value="{{ $program->id }}" @selected((string) old('tuition_program_id') === (string) $program->id)>{{ $program->name }}</option>
+                @endforeach
+            </select>
+            @error('tuition_program_id')<div class="error">{{ $message }}</div>@enderror
+        </div>
+
+        <div class="field">
             <label for="invoice_no">Invoice Number</label>
             <input id="invoice_no" name="invoice_no" type="text" value="{{ old('invoice_no') }}" required>
             @error('invoice_no')<div class="error">{{ $message }}</div>@enderror

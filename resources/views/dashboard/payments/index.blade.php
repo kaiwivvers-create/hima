@@ -25,9 +25,12 @@
 
 @if ($isAdminView)
     <section class="card" style="margin-bottom:.8rem;">
-        <h2 style="margin:.1rem 0 .4rem;font-size:1.05rem;">Generate Tuition Plan</h2>
-        @if ($errors->has('plan'))
-            <div class="alert alert-error" style="margin-bottom:.6rem;">{{ $errors->first('plan') }}</div>
+        <h2 style="margin:.1rem 0 .4rem;font-size:1.05rem;">Change Tuition Plan</h2>
+        <p class="muted" style="margin:0 0 .6rem;font-size:.88rem;">
+            Tuition payments are auto-generated per student and per program. Choose the student, their program, and the billing plan to change the installments.
+        </p>
+        @if ($errors->has('plan') || $errors->has('tuition_program_id'))
+            <div class="alert alert-error" style="margin-bottom:.6rem;">{{ $errors->first('plan') ?: $errors->first('tuition_program_id') }}</div>
         @endif
         <form method="POST" action="{{ route('dashboard.payments.plan', ['lang' => app()->getLocale()]) }}" class="actions" style="align-items:end;">
             @csrf
@@ -42,16 +45,31 @@
                 @error('student_id')<div class="error">{{ $message }}</div>@enderror
             </div>
             <div class="field" style="margin:0; min-width:200px;">
+                <label for="plan-program">Tuition Program</label>
+                <select id="plan-program" name="tuition_program_id" required>
+                    <option value="">Select program</option>
+                    @foreach ($programs as $program)
+                        <option
+                            value="{{ $program->id }}"
+                            data-slug="{{ $program->slug }}"
+                            data-plans="{{ implode(',', array_keys($program->availablePlans())) }}"
+                            data-prices='@json($program->availablePlans())'
+                        >{{ $program->name }}</option>
+                    @endforeach
+                </select>
+                @error('tuition_program_id')<div class="error">{{ $message }}</div>@enderror
+            </div>
+            <div class="field" style="margin:0; min-width:240px;">
                 <label for="plan-type">Plan</label>
                 <select id="plan-type" name="plan" required>
-                    <option value="monthly">Monthly (12x)</option>
-                    <option value="bi_monthly">Every 2 months (6x)</option>
-                    <option value="triannual">3x per year</option>
-                    <option value="yearly">Yearly (1x)</option>
+                    <option value="">Select plan</option>
+                    @foreach ($plans as $key => $plan)
+                        <option value="{{ $key }}" data-label="{{ $plan['label'] }}">{{ $plan['label'] }}</option>
+                    @endforeach
                 </select>
                 @error('plan')<div class="error">{{ $message }}</div>@enderror
             </div>
-            <button type="submit" class="btn">Generate</button>
+            <button type="submit" class="btn">Change</button>
         </form>
     </section>
 @endif
@@ -116,6 +134,9 @@
                                       <div style="display:flex; justify-content:space-between; gap:.6rem; flex-wrap:wrap;">
                                           <div>
                                               <p style="margin:0;font-weight:700;">{{ $payment->invoice_no }}</p>
+                                              @if ($payment->program)
+                                                  <p class="muted" style="margin:.2rem 0 0;font-size:.85rem;">For: {{ $payment->program->name }}</p>
+                                              @endif
                                               <p class="muted" style="margin:.2rem 0 0;">Due {{ $payment->due_date?->format('Y-m-d') ?? '-' }}</p>
                                           </div>
                                           <div style="text-align:right;">
@@ -169,6 +190,73 @@
             if (search) search.addEventListener('input', applyFilters);
             if (status) status.addEventListener('change', applyFilters);
         })();
+
+        (function () {
+            const studentSelect = document.getElementById('plan-student');
+            const programSelect = document.getElementById('plan-program');
+            const planSelect = document.getElementById('plan-type');
+            if (!studentSelect || !programSelect || !planSelect) return;
+
+            const programOptions = Array.from(programSelect.options);
+            const planOptions = Array.from(planSelect.options);
+            const studentPrograms = @json($studentProgramMap);
+
+            function updatePlans() {
+                const selected = programSelect.options[programSelect.selectedIndex];
+                const plans = selected && selected.dataset.plans ? selected.dataset.plans.split(',') : [];
+                let prices = {};
+                if (selected && selected.dataset.prices) {
+                    try { prices = JSON.parse(selected.dataset.prices); } catch (e) { prices = {}; }
+                }
+
+                planOptions.forEach(function (opt) {
+                    if (opt.value === '') return;
+                    const show = plans.includes(opt.value);
+                    opt.style.display = show ? '' : 'none';
+                    if (show) {
+                        const price = prices[opt.value] && prices[opt.value].price;
+                        opt.textContent = price
+                            ? (prices[opt.value].label + ' — ' + Number(price).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' each')
+                            : (opt.dataset.label || opt.textContent);
+                    }
+                });
+
+                const current = planSelect.options[planSelect.selectedIndex];
+                if (!current || current.value === '' || current.style.display === 'none') {
+                    const firstVisible = planOptions.find(function (opt) {
+                        return opt.value !== '' && opt.style.display !== 'none';
+                    });
+                    planSelect.value = firstVisible ? firstVisible.value : '';
+                }
+            }
+
+            function updatePrograms() {
+                const slugs = studentPrograms[studentSelect.value] || null;
+
+                let firstVisible = null;
+                programOptions.forEach(function (opt) {
+                    if (opt.value === '') return;
+                    const slug = opt.dataset.slug;
+                    const show = !slugs || slugs.includes(slug);
+                    opt.style.display = show ? '' : 'none';
+                    if (show && !firstVisible) firstVisible = opt;
+                });
+
+                const current = programSelect.options[programSelect.selectedIndex];
+                if (!current || current.value === '' || current.style.display === 'none') {
+                    if (firstVisible) {
+                        programSelect.value = firstVisible.value;
+                    } else {
+                        programSelect.value = '';
+                    }
+                }
+                updatePlans();
+            }
+
+            studentSelect.addEventListener('change', updatePrograms);
+            programSelect.addEventListener('change', updatePlans);
+            updatePrograms();
+        })();
     </script>
 @else
     <section class="card">
@@ -176,6 +264,7 @@
               <thead>
                   <tr>
                       <th>Student</th>
+                      <th>Program</th>
                       <th>Invoice</th>
                       <th>Amount</th>
                       <th>Paid Amount</th>
@@ -189,6 +278,7 @@
                 @forelse ($payments as $payment)
                     <tr>
                         <td>{{ $payment->student?->name ?? '-' }}</td>
+                        <td>{{ $payment->program?->name ?? '-' }}</td>
                         <td>{{ $payment->invoice_no }}</td>
                         <td>{{ number_format((float) $payment->amount, 2) }}</td>
                         <td>{{ number_format((float) $payment->paid_amount, 2) }}</td>
@@ -228,7 +318,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="muted">No payment records found.</td>
+                        <td colspan="9" class="muted">No payment records found.</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -254,6 +344,15 @@
                     <option value="">Select student</option>
                     @foreach ($students as $student)
                         <option value="{{ $student->id }}">{{ $student->name }} ({{ $student->email }})</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="field">
+                <label for="create-payment-program">Tuition Program (optional)</label>
+                <select id="create-payment-program" name="tuition_program_id">
+                    <option value="">—</option>
+                    @foreach ($programs as $program)
+                        <option value="{{ $program->id }}">{{ $program->name }}</option>
                     @endforeach
                 </select>
             </div>
@@ -311,7 +410,10 @@
                         <button class="btn-outline" type="button" data-modal-close>Close</button>
                     </div>
                     <p style="margin:.2rem 0;"><strong>Invoice:</strong> {{ $payment->invoice_no }}</p>
-                    <p style="margin:.2rem 0 .8rem;"><strong>Amount:</strong> {{ number_format((float) $payment->amount, 2) }}</p>
+                    @if ($payment->program)
+                        <p style="margin:.2rem 0;"><strong>Paying for:</strong> {{ $payment->program->name }}</p>
+                    @endif
+                    <p style="margin:.2rem 0;"><strong>Amount:</strong> {{ number_format((float) $payment->amount, 2) }}</p>
                     <p style="margin:.2rem 0 .8rem;"><strong>Pay to this nomor rekening: </strong>{{ $appText['payment_proof_rekening_text'] ?? 'Pay to this nomor rekening:' }}</p>
                     <form method="POST" action="{{ route('dashboard.payments.proofs.store', ['payment' => $payment, 'lang' => app()->getLocale()]) }}" enctype="multipart/form-data">
                         @csrf
@@ -354,6 +456,15 @@
                         <select id="edit-payment-student-{{ $payment->id }}" name="student_id" required>
                             @foreach ($students as $student)
                                 <option value="{{ $student->id }}" @selected((int) $payment->student_id === (int) $student->id)>{{ $student->name }} ({{ $student->email }})</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="edit-payment-program-{{ $payment->id }}">Tuition Program (optional)</label>
+                        <select id="edit-payment-program-{{ $payment->id }}" name="tuition_program_id">
+                            <option value="">—</option>
+                            @foreach ($programs as $program)
+                                <option value="{{ $program->id }}" @selected((int) $payment->tuition_program_id === (int) $program->id)>{{ $program->name }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -424,6 +535,12 @@
                             <p style="margin:0;font-weight:700;">{{ $payment->student?->name ?? '-' }}</p>
                             <p class="muted" style="margin:.2rem 0 0;">{{ $payment->student?->email ?? '' }}</p>
                         </div>
+                        @if ($payment->program)
+                        <div>
+                            <p class="muted" style="margin:0 0 .35rem;">Program</p>
+                            <p style="margin:0;font-weight:700;">{{ $payment->program->name }}</p>
+                        </div>
+                        @endif
                         <div>
                             <p class="muted" style="margin:0 0 .35rem;">Status</p>
                             <p style="margin:0;font-weight:700;">{{ ucfirst($payment->status) }}</p>

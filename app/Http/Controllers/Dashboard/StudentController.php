@@ -8,7 +8,6 @@ use App\Models\User;
 use App\Services\ActivityLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -26,7 +25,9 @@ class StudentController extends Controller
     public function index(Request $request): View
     {
         $search = trim((string) $request->query('search', ''));
-        $query = User::where('role', 'student')->latest();
+        $query = User::where('role', 'student')
+            ->with('tuitionPrograms')
+            ->latest();
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
@@ -62,23 +63,21 @@ class StudentController extends Controller
             'password' => ['required', 'string', 'min:6'],
             'schedule_days' => ['required', 'array', 'min:1'],
             'schedule_days.*' => ['string', Rule::in($allowedDays)],
-            'tuition_amount' => ['nullable', 'numeric', 'min:0'],
-            'tuition_program' => ['nullable', Rule::in(array_keys($programs))],
+            'programs' => ['nullable', 'array'],
+            'programs.*' => ['string', Rule::in(array_keys($programs))],
+            'annual' => ['nullable', 'array'],
+            'annual.*' => ['nullable', 'numeric', 'min:0'],
         ]);
-
-        if (empty($validated['tuition_amount']) && !empty($validated['tuition_program'])) {
-            $validated['tuition_amount'] = $this->defaultAnnualTuition($validated['tuition_program']);
-        }
 
         $student = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'role' => 'student',
             'schedule_days' => $validated['schedule_days'],
-            'tuition_amount' => $validated['tuition_amount'] ?? null,
-            'tuition_program' => $validated['tuition_program'] ?? null,
             'password' => Hash::make($validated['password']),
         ]);
+
+        $this->syncPrograms($student, $validated['programs'] ?? [], $validated['annual'] ?? [], $programs);
 
         ActivityLogger::log(
             'user.created',
@@ -96,7 +95,7 @@ class StudentController extends Controller
     public function edit(User $student): View
     {
         return view('dashboard.students.edit', [
-            'student' => $student,
+            'student' => $student->load('tuitionPrograms'),
             'days' => $this->allowedDays(),
             'tuitionPrograms' => $this->tuitionPrograms(),
         ]);
@@ -113,21 +112,17 @@ class StudentController extends Controller
             'password' => ['nullable', 'string', 'min:6'],
             'schedule_days' => ['required', 'array', 'min:1'],
             'schedule_days.*' => ['string', Rule::in($allowedDays)],
-            'tuition_amount' => ['nullable', 'numeric', 'min:0'],
-            'tuition_program' => ['nullable', Rule::in(array_keys($programs))],
+            'programs' => ['nullable', 'array'],
+            'programs.*' => ['string', Rule::in(array_keys($programs))],
+            'annual' => ['nullable', 'array'],
+            'annual.*' => ['nullable', 'numeric', 'min:0'],
         ]);
-
-        if (empty($validated['tuition_amount']) && !empty($validated['tuition_program'])) {
-            $validated['tuition_amount'] = $this->defaultAnnualTuition($validated['tuition_program']);
-        }
 
         $payload = [
             'name' => $validated['name'],
             'email' => $validated['email'],
             'role' => 'student',
             'schedule_days' => $validated['schedule_days'],
-            'tuition_amount' => $validated['tuition_amount'] ?? null,
-            'tuition_program' => $validated['tuition_program'] ?? null,
         ];
 
         $before = ActivityLogger::snapshot($student, 'user');
@@ -137,6 +132,7 @@ class StudentController extends Controller
         }
 
         $student->update($payload);
+        $this->syncPrograms($student, $validated['programs'] ?? [], $validated['annual'] ?? [], $programs);
 
         if (!empty($validated['password'])) {
             ActivityLogger::log(
@@ -189,36 +185,44 @@ class StudentController extends Controller
     }
 
     /**
-     * @return array<string, array{label:string, monthly:int}>
+     * @return array<string, TuitionProgram>
      */
     private function tuitionPrograms(): array
     {
         $programs = TuitionProgram::query()
             ->orderBy('name')
-            ->get(['slug', 'name', 'monthly_amount']);
-
-        if ($programs->isEmpty()) {
-            return [];
-        }
+            ->get();
 
         $result = [];
         foreach ($programs as $program) {
-            $result[$program->slug] = [
-                'label' => $program->name,
-                'monthly' => (float) $program->monthly_amount,
-            ];
+            $result[$program->slug] = $program;
         }
 
         return $result;
     }
 
-    private function defaultAnnualTuition(string $program): ?float
+    /**
+     * Sync the student's enrolled tuition programs (multi-program support).
+     *
+     * @param array<int, string> $selectedSlugs
+     * @param array<string, mixed> $annualAmounts
+     * @param array<string, TuitionProgram> $programs
+     */
+    private function syncPrograms(User $student, array $selectedSlugs, array $annualAmounts, array $programs): void
     {
-        $programs = $this->tuitionPrograms();
-        if (!isset($programs[$program])) {
-            return null;
+        $pivot = [];
+        foreach ($selectedSlugs as $slug) {
+            if (!isset($programs[$slug])) {
+                continue;
+            }
+
+            $annual = isset($annualAmounts[$slug]) && $annualAmounts[$slug] !== '' && $annualAmounts[$slug] !== null
+                ? (float) $annualAmounts[$slug]
+                : round((float) $programs[$slug]->monthly_amount * 12, 2);
+
+            $pivot[$programs[$slug]->id] = ['annual_amount' => $annual > 0 ? $annual : null];
         }
 
-        return $programs[$program]['monthly'] * 12;
+        $student->tuitionPrograms()->sync($pivot);
     }
 }

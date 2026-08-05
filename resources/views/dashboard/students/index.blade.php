@@ -37,7 +37,7 @@
                 <th>Email</th>
                 <th>Schedule</th>
                 <th>Program</th>
-                <th>Tuition</th>
+                <th>Tuition (per year)</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -48,14 +48,15 @@
                     $scheduleLabel = empty($schedule)
                         ? 'All days'
                         : collect($schedule)->map(fn ($day) => $dayLabels[$day] ?? strtoupper($day))->join(', ');
-                    $programLabel = $tuitionPrograms[$student->tuition_program]['label'] ?? '-';
+                    $programNames = $student->tuitionPrograms->pluck('name')->join(', ') ?: '-';
+                    $totalAnnual = (float) $student->tuitionPrograms->sum(fn ($p) => (float) $p->pivot->annual_amount);
                 @endphp
                 <tr>
                     <td>{{ $student->name }}</td>
                     <td>{{ $student->email }}</td>
                     <td>{{ $scheduleLabel }}</td>
-                    <td>{{ $programLabel }}</td>
-                    <td>{{ $student->tuition_amount !== null ? number_format((float) $student->tuition_amount, 2) : '-' }}</td>
+                    <td>{{ $programNames }}</td>
+                    <td>{{ $totalAnnual > 0 ? number_format($totalAnnual, 2) : '-' }}</td>
                     <td>
                         <div class="actions">
                             @perm('students.update')
@@ -76,9 +77,7 @@
     </table>
 
     <div class="pagination">{{ $students->links() }}</div>
-</section>
-
-@perm('students.create')
+</section>@perm('students.create')
 <div class="modal" id="student-create-modal">
     <div class="modal-backdrop" data-modal-close></div>
     <div class="modal-card">
@@ -109,17 +108,17 @@
                 </div>
             </div>
             <div class="field">
-                <label for="create-program">Tuition Program</label>
-                <select id="create-program" name="tuition_program" class="js-tuition-program" data-target="create-tuition">
-                    <option value="">Select program</option>
-                    @foreach ($tuitionPrograms as $key => $program)
-                        <option value="{{ $key }}" data-annual="{{ $program['monthly'] * 12 }}">{{ $program['label'] }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="field">
-                <label for="create-tuition">Tuition Amount (per year)</label>
-                <input id="create-tuition" name="tuition_amount" type="number" min="0" step="0.01">
+                <label>Tuition Programs</label>
+                <p class="muted" style="font-size:.85rem;margin:.1rem 0 .5rem;">Check the programs the student follows and set the annual tuition for each.</p>
+                @foreach ($tuitionPrograms as $slug => $program)
+                    <div style="display:flex;gap:.6rem;align-items:center;margin-bottom:.45rem;flex-wrap:wrap;">
+                        <label style="display:flex;align-items:center;gap:.4rem;min-width:200px;font-weight:600;">
+                            <input type="checkbox" name="programs[]" value="{{ $slug }}" data-annual="{{ round((float) $program->monthly_amount * 12, 2) }}">
+                            {{ $program->name }}
+                        </label>
+                        <input type="number" name="annual[{{ $slug }}]" step="0.01" min="0" style="max-width:220px;flex:1;" placeholder="Annual amount">
+                    </div>
+                @endforeach
             </div>
             <div class="actions">
                 <button type="submit" class="btn">Save</button>
@@ -132,6 +131,7 @@
 @foreach ($students as $student)
     @php
         $selectedDays = !empty($student->schedule_days) ? $student->schedule_days : $days;
+        $selectedPrograms = $student->tuitionPrograms->keyBy('slug');
     @endphp
     @perm('students.update')
     <div class="modal" id="student-edit-{{ $student->id }}">
@@ -168,17 +168,20 @@
                     </div>
                 </div>
                 <div class="field">
-                    <label for="edit-program-{{ $student->id }}">Tuition Program</label>
-                    <select id="edit-program-{{ $student->id }}" name="tuition_program" class="js-tuition-program" data-target="edit-tuition-{{ $student->id }}">
-                        <option value="">Select program</option>
-                        @foreach ($tuitionPrograms as $key => $program)
-                            <option value="{{ $key }}" data-annual="{{ $program['monthly'] * 12 }}" @selected($student->tuition_program === $key)>{{ $program['label'] }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="field">
-                    <label for="edit-tuition-{{ $student->id }}">Tuition Amount (per year)</label>
-                    <input id="edit-tuition-{{ $student->id }}" name="tuition_amount" type="number" min="0" step="0.01" value="{{ $student->tuition_amount }}">
+                    <label>Tuition Programs</label>
+                    <p class="muted" style="font-size:.85rem;margin:.1rem 0 .5rem;">Check the programs the student follows and set the annual tuition for each.</p>
+                    @foreach ($tuitionPrograms as $slug => $program)
+                        @php
+                            $enrolled = $selectedPrograms->get($slug);
+                        @endphp
+                        <div style="display:flex;gap:.6rem;align-items:center;margin-bottom:.45rem;flex-wrap:wrap;">
+                            <label style="display:flex;align-items:center;gap:.4rem;min-width:200px;font-weight:600;">
+                                <input type="checkbox" name="programs[]" value="{{ $slug }}" data-annual="{{ round((float) $program->monthly_amount * 12, 2) }}" @checked($enrolled !== null)>
+                                {{ $program->name }}
+                            </label>
+                            <input type="number" name="annual[{{ $slug }}]" step="0.01" min="0" style="max-width:220px;flex:1;" placeholder="Annual amount" value="{{ $enrolled ? $enrolled->pivot->annual_amount : '' }}">
+                        </div>
+                    @endforeach
                 </div>
                 <div class="actions">
                     <button type="submit" class="btn">Update</button>
@@ -210,15 +213,14 @@
 @endforeach
 <script>
     (function () {
-        document.querySelectorAll('.js-tuition-program').forEach(function (select) {
-            select.addEventListener('change', function () {
-                const selected = select.options[select.selectedIndex];
-                const annual = selected ? selected.dataset.annual : null;
-                const targetId = select.dataset.target;
-                const target = document.getElementById(targetId);
-                if (!target || !annual) return;
-                if (!target.value) {
-                    target.value = annual;
+        document.querySelectorAll('[name="programs[]"]').forEach(function (checkbox) {
+            checkbox.addEventListener('change', function () {
+                if (!checkbox.checked) return;
+                const annual = checkbox.dataset.annual;
+                const form = checkbox.closest('form');
+                const input = form && form.querySelector('input[name="annual[' + checkbox.value + ']"]');
+                if (input && annual && !input.value) {
+                    input.value = annual;
                 }
             });
         });

@@ -13,6 +13,7 @@ class Payment extends Model
 
     protected $fillable = [
         'student_id',
+        'tuition_program_id',
         'invoice_no',
         'amount',
         'paid_amount',
@@ -35,6 +36,11 @@ class Payment extends Model
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
+    }
+
+    public function program(): BelongsTo
+    {
+        return $this->belongsTo(TuitionProgram::class, 'tuition_program_id');
     }
 
     public function proofs(): HasMany

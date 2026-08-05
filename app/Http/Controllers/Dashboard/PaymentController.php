@@ -5,14 +5,15 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\PaymentProof;
+use App\Models\TuitionProgram;
 use App\Models\User;
 use App\Services\ActivityLogger;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
-use Carbon\Carbon;
 
 class PaymentController extends Controller
 {
@@ -27,10 +28,11 @@ class PaymentController extends Controller
     public function index(): View
     {
         $user = request()->user();
-        $query = Payment::with('student')->orderBy('due_date', 'asc');
+        $query = Payment::with(['student', 'program'])->orderBy('due_date', 'asc');
         $students = User::where('role', 'student')->orderBy('name')->get();
         $studentCards = collect();
         $modalPayments = collect();
+        $programs = TuitionProgram::query()->orderBy('name')->get();
 
         if ($user && $user->role === 'student') {
             $query->where('student_id', $user->id);
@@ -46,7 +48,18 @@ class PaymentController extends Controller
 
         $isAdminView = $user && $user->role !== 'parent' && $user->role !== 'student';
         $latestProofByPaymentId = collect();
+        $studentProgramMap = collect();
         if ($isAdminView) {
+            // student_id => list of enrolled program slugs (used to filter the Change plan form)
+            foreach (DB::table('student_tuition_program')
+                ->join('tuition_programs', 'tuition_programs.id', '=', 'student_tuition_program.tuition_program_id')
+                ->get(['student_tuition_program.student_id', 'tuition_programs.slug']) as $row) {
+                $studentProgramMap = $studentProgramMap->put($row->student_id, array_merge(
+                    $studentProgramMap->get($row->student_id, []),
+                    [$row->slug]
+                ));
+            }
+
             $payments = $query->get();
             $modalPayments = $payments;
             $paymentsByStudent = $payments->groupBy('student_id');
@@ -94,6 +107,9 @@ class PaymentController extends Controller
             'modalPayments' => $modalPayments,
             'isAdminView' => $isAdminView,
             'latestProofByPaymentId' => $latestProofByPaymentId,
+            'programs' => $programs,
+            'studentProgramMap' => $studentProgramMap,
+            'plans' => TuitionProgram::PLANS,
         ]);
     }
 
@@ -113,6 +129,7 @@ class PaymentController extends Controller
 
         return view('dashboard.payments.create', [
             'students' => $students,
+            'programs' => TuitionProgram::query()->orderBy('name')->get(),
         ]);
     }
 
@@ -123,6 +140,7 @@ class PaymentController extends Controller
                 'required',
                 Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'student')),
             ],
+            'tuition_program_id' => ['nullable', Rule::exists('tuition_programs', 'id')],
             'invoice_no' => ['required', 'string', 'max:255', 'unique:payments,invoice_no'],
             'amount' => ['required', 'numeric', 'min:0'],
             'paid_amount' => ['nullable', 'numeric', 'min:0', 'lte:amount'],
@@ -181,6 +199,7 @@ class PaymentController extends Controller
         return view('dashboard.payments.edit', [
             'payment' => $payment,
             'students' => User::where('role', 'student')->orderBy('name')->get(),
+            'programs' => TuitionProgram::query()->orderBy('name')->get(),
         ]);
     }
 
@@ -191,6 +210,7 @@ class PaymentController extends Controller
                 'required',
                 Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'student')),
             ],
+            'tuition_program_id' => ['nullable', Rule::exists('tuition_programs', 'id')],
             'invoice_no' => ['required', 'string', 'max:255', 'unique:payments,invoice_no,' . $payment->id],
             'amount' => ['required', 'numeric', 'min:0'],
             'paid_amount' => ['nullable', 'numeric', 'min:0', 'lte:amount'],
@@ -279,11 +299,16 @@ class PaymentController extends Controller
         }
 
         return view('dashboard.payments.receipt', [
-            'payment' => $payment->load('student'),
+            'payment' => $payment->load('student', 'program'),
         ]);
     }
 
-    public function generatePlan(Request $request): RedirectResponse
+    /**
+     * Set up (or change) the auto-generated installment plan for a student's
+     * tuition program. Payments are generated per program, so a student
+     * following multiple programs gets one set of payments per program.
+     */
+    public function changePlan(Request $request): RedirectResponse
     {
         $user = $request->user();
         if (!$user || in_array($user->role, ['parent', 'student'], true)) {
@@ -295,47 +320,63 @@ class PaymentController extends Controller
                 'required',
                 Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'student')),
             ],
-            'plan' => ['required', Rule::in(['monthly', 'bi_monthly', 'triannual', 'yearly'])],
+            'tuition_program_id' => ['required', Rule::exists('tuition_programs', 'id')],
+            'plan' => ['required', Rule::in(array_keys(TuitionProgram::PLANS))],
         ]);
 
         $student = User::findOrFail($validated['student_id']);
-        $tuition = (float) ($student->tuition_amount ?? 0);
-        if ($tuition <= 0) {
-            return back()->withErrors(['plan' => 'Tuition amount not set for this student.']);
-        }
+        $program = TuitionProgram::findOrFail($validated['tuition_program_id']);
 
         $plan = $validated['plan'];
-        $planConfig = match ($plan) {
-            'monthly' => ['count' => 12, 'interval' => 1],
-            'bi_monthly' => ['count' => 6, 'interval' => 2],
-            'triannual' => ['count' => 3, 'interval' => 4],
-            'yearly' => ['count' => 1, 'interval' => 12],
-        };
-
-        $count = $planConfig['count'];
-        $interval = $planConfig['interval'];
+        $config = TuitionProgram::PLANS[$plan];
+        $count = $config['count'];
+        $interval = $config['interval'];
         $year = now()->year;
-        $base = round($tuition / $count, 2);
+
+        $perInstallment = $program->planPrice($plan);
+        if ($perInstallment === null || $perInstallment <= 0) {
+            // Fall back to the student's enrolled annual amount for this program.
+            $enrollment = DB::table('student_tuition_program')
+                ->where('student_id', $student->id)
+                ->where('tuition_program_id', $program->id)
+                ->first();
+            $annual = $enrollment && $enrollment->annual_amount !== null
+                ? (float) $enrollment->annual_amount
+                : round((float) $program->monthly_amount * 12, 2);
+
+            if ($annual <= 0) {
+                return back()->withErrors(['plan' => 'No pricing set for this plan and program.']);
+            }
+
+            $perInstallment = round($annual / $count, 2);
+        }
+
+        $slug = $program->slug;
+        $prefix = "TUITION-{$student->id}-{$slug}-{$year}-";
+
+        // Changing the plan replaces previously auto-generated pending installments.
+        Payment::where('student_id', $student->id)
+            ->where('tuition_program_id', $program->id)
+            ->where('status', 'pending')
+            ->where('invoice_no', 'like', $prefix.'%')
+            ->delete();
 
         $start = Carbon::now()->startOfMonth();
         $created = 0;
 
         for ($i = 1; $i <= $count; $i++) {
-            $dueDate = $start->copy()->addMonths(($i - 1) * $interval)->toDateString();
-            $amount = $i === $count ? round($tuition - ($base * ($count - 1)), 2) : $base;
-            $invoice = 'TUITION-'.$student->id.'-'.$year.'-'.$i;
-
-            $exists = Payment::where('invoice_no', $invoice)->exists();
-            if ($exists) {
+            $invoice = $prefix.$i;
+            if (Payment::where('invoice_no', $invoice)->exists()) {
                 continue;
             }
 
             Payment::create([
                 'student_id' => $student->id,
+                'tuition_program_id' => $program->id,
                 'invoice_no' => $invoice,
-                'amount' => $amount,
+                'amount' => $perInstallment,
                 'paid_amount' => 0,
-                'due_date' => $dueDate,
+                'due_date' => $start->copy()->addMonths(($i - 1) * $interval)->toDateString(),
                 'paid_at' => null,
                 'status' => 'pending',
                 'payment_method' => 'transfer',
@@ -343,6 +384,6 @@ class PaymentController extends Controller
             $created++;
         }
 
-        return back()->with('success', $created.' payment(s) generated.');
+        return back()->with('success', "{$program->name}: set up {$created} payment(s) for the {$config['label']} plan.");
     }
 }

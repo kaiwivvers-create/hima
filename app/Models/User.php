@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -52,5 +53,11 @@ class User extends Authenticatable
             'schedule_days' => 'array',
             'tuition_amount' => 'decimal:2',
         ];
+    }
+
+    public function tuitionPrograms(): BelongsToMany
+    {
+        return $this->belongsToMany(TuitionProgram::class, 'student_tuition_program', 'student_id', 'tuition_program_id')
+            ->withPivot('annual_amount');
     }
 }

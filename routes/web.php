@@ -203,7 +203,7 @@ Route::middleware(['auth', 'apply.locale'])->group(function () {
             ->middleware('permission:admin.database.manage')
             ->name('admin.database.reset');
 
-        Route::post('payments/plan', [PaymentController::class, 'generatePlan'])->name('payments.plan');
+        Route::post('payments/plan', [PaymentController::class, 'changePlan'])->name('payments.plan');
         Route::post('payments/{payment}/pay', [PaymentController::class, 'pay'])->name('payments.pay');
         Route::post('payments/{payment}/proofs', [PaymentProofController::class, 'store'])->name('payments.proofs.store');
         Route::get('payments/proofs', [PaymentProofController::class, 'index'])->name('payments.proofs.index');

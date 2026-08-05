@@ -8,6 +8,7 @@
         'sat' => 'Sat',
         'sun' => 'Sun',
     ];
+    $selectedPrograms = $student->tuitionPrograms->keyBy('slug');
 @endphp
 
 @extends('dashboard.layout')
@@ -41,20 +42,20 @@
             </div>
         </div>
         <div class="field">
-            <label for="tuition_program">Tuition Program</label>
-            <select id="tuition_program" name="tuition_program" class="js-tuition-program" data-target="tuition_amount">
-                <option value="">Select program</option>
-                @foreach ($tuitionPrograms as $key => $program)
-                    <option value="{{ $key }}" data-annual="{{ $program['monthly'] * 12 }}" @selected($student->tuition_program === $key)>{{ $program['label'] }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div class="field">
-            <label for="tuition_amount">Tuition Amount (per year)</label>
-            <input id="tuition_amount" name="tuition_amount" type="number" min="0" step="0.01" value="{{ old('tuition_amount', $student->tuition_amount) }}">
-            <div class="muted" style="font-size:.8rem; margin-top:.2rem;">
-                <label><input type="checkbox" class="tuition-override" data-target="tuition_amount"> Allow manual edit</label>
-            </div>
+            <label>Tuition Programs</label>
+            <p class="muted" style="font-size:.85rem;margin:.1rem 0 .5rem;">Check the programs the student follows and set the annual tuition for each.</p>
+            @foreach ($tuitionPrograms as $slug => $program)
+                @php
+                    $enrolled = $selectedPrograms->get($slug);
+                @endphp
+                <div style="display:flex;gap:.6rem;align-items:center;margin-bottom:.45rem;flex-wrap:wrap;">
+                    <label style="display:flex;align-items:center;gap:.4rem;min-width:200px;font-weight:600;">
+                        <input type="checkbox" name="programs[]" value="{{ $slug }}" data-annual="{{ round((float) $program->monthly_amount * 12, 2) }}" @checked($enrolled !== null)>
+                        {{ $program->name }}
+                    </label>
+                    <input type="number" name="annual[{{ $slug }}]" step="0.01" min="0" style="max-width:220px;flex:1;" placeholder="Annual amount" value="{{ $enrolled ? $enrolled->pivot->annual_amount : '' }}">
+                </div>
+            @endforeach
         </div>
         <div class="actions">
             <button type="submit" class="btn">Update</button>
@@ -64,37 +65,18 @@
 
 <script>
     (function () {
-        function toggleOverride(checkbox, target) {
-            if (!checkbox || !target) return;
-            target.readOnly = !checkbox.checked;
-            target.classList.toggle('muted', target.readOnly);
-        }
-
-        document.querySelectorAll('.js-tuition-program').forEach(function (select) {
-            select.addEventListener('change', function () {
-                const selected = select.options[select.selectedIndex];
-                const annual = selected ? selected.dataset.annual : null;
-                const targetId = select.dataset.target;
-                const target = document.getElementById(targetId);
-                const overrideId = select.dataset.override;
-                const override = overrideId ? document.getElementById(overrideId) : null;
-                if (!target || !annual) return;
-                if (!target.value || target.readOnly) {
-                    target.value = annual;
-                }
-                if (override) {
-                    override.checked = false;
-                    toggleOverride(override, target);
-                }
-            });
-        });
-
-        document.querySelectorAll('.tuition-override').forEach(function (checkbox) {
+        document.querySelectorAll('[name="programs[]"]').forEach(function (checkbox) {
             checkbox.addEventListener('change', function () {
-                const target = document.getElementById(checkbox.dataset.target);
-                toggleOverride(checkbox, target);
+                if (!checkbox.checked) return;
+                const annual = checkbox.dataset.annual;
+                const form = checkbox.closest('form');
+                const input = form && form.querySelector('input[name="annual[' + checkbox.value + ']"]');
+                if (input && annual && !input.value) {
+                    input.value = annual;
+                }
             });
         });
     })();
 </script>
+
 @endsection

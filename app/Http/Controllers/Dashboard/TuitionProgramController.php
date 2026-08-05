@@ -20,6 +20,7 @@ class TuitionProgramController extends Controller
 
         return view('dashboard.admin.tuition-programs.index', [
             'programs' => TuitionProgram::query()->orderBy('name')->get(),
+            'plans' => TuitionProgram::PLANS,
         ]);
     }
 
@@ -33,12 +34,20 @@ class TuitionProgramController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'slug' => ['nullable', 'string', 'max:50', 'alpha_dash', 'unique:tuition_programs,slug'],
             'monthly_amount' => ['required', 'numeric', 'min:0'],
+            'bi_monthly_amount' => ['nullable', 'numeric', 'min:0'],
+            'triannual_amount' => ['nullable', 'numeric', 'min:0'],
+            'quarterly_amount' => ['nullable', 'numeric', 'min:0'],
+            'yearly_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         TuitionProgram::create([
             'name' => $validated['name'],
             'slug' => $validated['slug'] ?: Str::slug($validated['name']),
             'monthly_amount' => $validated['monthly_amount'],
+            'bi_monthly_amount' => $validated['bi_monthly_amount'] ?? null,
+            'triannual_amount' => $validated['triannual_amount'] ?? null,
+            'quarterly_amount' => $validated['quarterly_amount'] ?? null,
+            'yearly_amount' => $validated['yearly_amount'] ?? null,
         ]);
 
         return back()->with('success', 'Tuition program created.');
@@ -60,9 +69,21 @@ class TuitionProgramController extends Controller
                 Rule::unique('tuition_programs', 'slug')->ignore($program->id),
             ],
             'monthly_amount' => ['required', 'numeric', 'min:0'],
+            'bi_monthly_amount' => ['nullable', 'numeric', 'min:0'],
+            'triannual_amount' => ['nullable', 'numeric', 'min:0'],
+            'quarterly_amount' => ['nullable', 'numeric', 'min:0'],
+            'yearly_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        $program->update($validated);
+        $program->update([
+            'name' => $validated['name'],
+            'slug' => $validated['slug'],
+            'monthly_amount' => $validated['monthly_amount'],
+            'bi_monthly_amount' => $validated['bi_monthly_amount'] ?? null,
+            'triannual_amount' => $validated['triannual_amount'] ?? null,
+            'quarterly_amount' => $validated['quarterly_amount'] ?? null,
+            'yearly_amount' => $validated['yearly_amount'] ?? null,
+        ]);
 
         return back()->with('success', 'Tuition program updated.');
     }
@@ -83,9 +104,17 @@ class TuitionProgramController extends Controller
             ]);
         }
 
+        $inPivot = \Illuminate\Support\Facades\DB::table('student_tuition_program')
+            ->where('tuition_program_id', $program->id)
+            ->exists();
+        if ($inPivot) {
+            return back()->withErrors([
+                'tuition_program' => 'Cannot delete program that is assigned to students.',
+            ]);
+        }
+
         $program->delete();
 
         return back()->with('success', 'Tuition program deleted.');
     }
 }
-
